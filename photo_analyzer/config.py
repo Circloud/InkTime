@@ -42,10 +42,6 @@ class Settings(BaseSettings):
     home_lon: float = 114.057865
     home_radius_km: float = 60.0
 
-    # Selection criteria
-    memory_threshold: float = Field(default=70.0, ge=0, le=100)
-    daily_photo_quantity: int = Field(default=5, ge=1)
-
     @field_validator("batch_limit", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):

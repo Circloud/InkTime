@@ -3,6 +3,22 @@
 from dataclasses import dataclass
 
 
+def _convert_exif_to_iso_date(exif_datetime: str | None) -> str | None:
+    """Convert EXIF datetime format (YYYY:MM:DD HH:MM:SS) to ISO date (YYYY-MM-DD).
+
+    Returns None if input is None or invalid format.
+    """
+    if not exif_datetime:
+        return None
+    try:
+        # EXIF format: "YYYY:MM:DD HH:MM:SS" -> extract date portion
+        date_part = exif_datetime.split(" ")[0]
+        # Replace colons with dashes
+        return date_part.replace(":", "-")
+    except Exception:
+        return None
+
+
 @dataclass
 class ExifInfo:
     """EXIF metadata extracted from an image."""
@@ -70,7 +86,7 @@ class PhotoRecord:
             caption=caption,
             width=exif_info.width,
             height=exif_info.height,
-            exif_datetime=exif_info.datetime,
+            exif_datetime=_convert_exif_to_iso_date(exif_info.datetime),
             exif_model=exif_info.model,
             exif_gps_lat=exif_info.gps_lat,
             exif_gps_lon=exif_info.gps_lon,
