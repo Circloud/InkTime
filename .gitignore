@@ -6,6 +6,10 @@ __pycache__/
 
 # Virtual environment
 venv/
+.venv/
+
+# Environment secrets
+.env
 
 # IDE
 .idea/
@@ -16,17 +20,12 @@ __MACOSX/
 # Static resources
 resources/fonts/
 
-# Sensitive config
-config.py
-
 # Outputs
 output/
 
 # Database
 filelist.txt
 *.db
-
-# Logs
 
 # Others
 test/
