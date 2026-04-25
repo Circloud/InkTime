@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     )
 
     # Paths
-    image_dir: Path = Field(default=Path("./test"))
-    db_path: Path = Field(default=Path("./photos.db"))
+    image_dir: Path = Field(default=Path("./photo_analyzer/test"))
+    db_path: Path = Field(default=Path("./photo_analyzer/photos.db"))
     world_cities_csv: Path = Field(default=Path("./photo_analyzer/world_cities_zh.csv"))
 
     # VLM API
