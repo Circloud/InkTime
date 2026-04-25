@@ -27,8 +27,8 @@ class ServerSettings(BaseSettings):
     )
 
     # Paths (shared with photo_analyzer - both packages access same DB and image library)
-    db_path: Path = Field(default=Path("./photos.db"))
-    image_dir: Path = Field(default=Path("./test"))
+    db_path: Path = Field(default=Path("./photo_analyzer/photos.db"))
+    image_dir: Path = Field(default=Path("./photo_analyzer/test"))
 
     # Photo selection criteria (server-only - selects N photos per day for display)
     memory_threshold: float = Field(default=70.0, ge=0, le=100)
