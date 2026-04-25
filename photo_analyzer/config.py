@@ -21,11 +21,11 @@ class Settings(BaseSettings):
     # Paths
     image_dir: Path = Field(default=Path("./test"))
     db_path: Path = Field(default=Path("./photos.db"))
-    world_cities_csv: Path = Field(default=Path("./data/world_cities_zh.csv"))
+    world_cities_csv: Path = Field(default=Path("./photo_analyzer/world_cities_zh.csv"))
 
     # VLM API
     api_url: str = "http://127.0.0.1:1234/v1/chat/completions"
-    model_name: str = "qwen3-vl-32b-instruct"
+    model_name: str = "qwen3.5-4b"
     api_key: str = ""
 
     # Processing

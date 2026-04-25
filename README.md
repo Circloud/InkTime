@@ -90,68 +90,14 @@ InkTime 使用 OpenAI 接口（LM Studio / 其它兼容服务均可）。
 
 *请根据你拥有的算力选择合适的模型，作者使用的 qwen3-vl-30b 已经能取得相当不错的文案。*
 
-## 为 ESP32 渲染"历史上的今天"照片
+## 启动服务器
 执行：
 
-```python3 render_daily_photo.py```
-
-## 启动 ESP32 下载服务器和 WebUI
-执行：
-
-```python3 server.py```
-
-#### WebUI（如果开启）：
-Server 将提供一个简明的可视化前端，用于查看已处理照片的描述、文案，并预览模拟墨水屏渲染效果。
-
-在浏览器中访问：
-
-```http://127.0.0.1:8765/review```
-
-程序跑通后，建议在```config.py```中关闭WebUI，仅保留 ESP32 下载接口。
-
-## 服务器部署与定时任务示例（可选）
-
-创建 systemd 服务：
-
-```sudo vi /etc/systemd/system/inktime-server.service```
-
-示例（请自行修改项目路径）：
-
-```
-[Unit]
-Description=InkTime Server
-After=network.target
-
-[Service]
-Type=simple
-# 改成你的项目路径
-WorkingDirectory=/path/to/InkTime
-ExecStart=/path/to/InkTime/venv/bin/python server.py
-Restart=always
-RestartSec=3
-User=inktime
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
+```bash
+uv run inktime_server
 ```
 
-```
-sudo systemctl daemon-reload
-sudo systemctl enable inktime-server
-sudo systemctl start inktime-server
-```
-
-使用 crontab 每天凌晨自动选片、渲染：
-
-```
-chmod +x scripts/daily_render.sh
-sudo -u inktime crontab -e
-0 5 * * * /path/to/InkTime/scripts/daily_render.sh
-```
-
-在 ```logs/render.log```可查看日志。
+服务器会在首次请求时自动选片、渲染。无需定时任务。
 
 ---
 

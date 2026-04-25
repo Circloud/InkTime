@@ -1,8 +1,8 @@
-"""CLI entry point for running the InkTime server.
+"""CLI entry point for the Flask server.
 
 Usage:
-    python -m inktime_server
-    uv run inktime_server
+    python -m server
+    uv run server
 """
 
 from .app import create_app

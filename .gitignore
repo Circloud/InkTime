@@ -5,8 +5,8 @@ __pycache__/
 *.pyd
 
 # Virtual environment
-venv/
 .venv/
+venv/
 
 # Environment secrets
 .env
@@ -15,18 +15,20 @@ venv/
 .idea/
 .vscode/
 .DS_Store
-__MACOSX/
-
-# Static resources
-resources/fonts/
-
-# Outputs
-output/
 
 # Database
-filelist.txt
 *.db
 
-# Others
+# Generated files
+filelist.txt
+output/
+
+# Test photos
 test/
-old/
+
+# Claude Code docs
+CLAUDE.md
+docs/
+
+# PlatformIO build artifacts
+firmware/.pio/
