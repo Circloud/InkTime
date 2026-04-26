@@ -39,6 +39,9 @@ class ServerSettings(BaseSettings):
     flask_port: int = 8765
     debug: bool = False
 
+    # Font for text overlay (caption, date, location)
+    font_path: Path | None = None  # Path to TTF font file, e.g., "./fonts/LXGWHeartSerifMN.ttf"
+
     def resolve_paths(self) -> None:
         """Resolve relative paths to absolute paths based on project root."""
         root = Path(__file__).parent.parent
@@ -47,6 +50,8 @@ class ServerSettings(BaseSettings):
             self.db_path = (root / self.db_path).resolve()
         if not self.image_dir.is_absolute():
             self.image_dir = (root / self.image_dir).resolve()
+        if self.font_path and not self.font_path.is_absolute():
+            self.font_path = (root / self.font_path).resolve()
 
 
 # Global settings instance

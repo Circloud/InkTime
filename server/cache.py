@@ -10,8 +10,9 @@ from dataclasses import dataclass
 from datetime import date
 
 from .database import PhotoCandidate
-from .renderer import render_photo
+from .composition import render
 from .selector import select_photos_for_date
+from .config import settings
 
 
 @dataclass
@@ -65,11 +66,15 @@ class DailyPhotoCache:
         # Select photos
         candidates = select_photos_for_date(target_date)
 
-        # Render all photos
+        # Render all photos with layout (photo + text overlay)
         photos: list[CachedPhoto] = []
         for candidate in candidates:
             try:
-                binary = render_photo(candidate.path)
+                binary = render(
+                    candidate.path,
+                    candidate,
+                    font_path=settings.font_path,
+                )
                 photos.append(CachedPhoto(candidate=candidate, binary=binary))
             except Exception as e:
                 # Skip photos that fail to render
