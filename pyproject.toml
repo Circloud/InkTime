@@ -23,4 +23,6 @@ build-backend = "hatchling.build"
 packages = ["photo_analyzer", "server"]
 
 [dependency-groups]
-dev = []
+dev = [
+    "pytest>=9.0.3",
+]

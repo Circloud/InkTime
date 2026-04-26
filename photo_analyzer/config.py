@@ -5,7 +5,7 @@ Environment variables take precedence over .env file.
 """
 
 from pathlib import Path
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,10 +16,15 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        env_prefix="",
+        populate_by_name=True,
     )
 
     # Paths
-    image_dir: Path = Field(default=Path("./photo_analyzer/test"))
+    image_dirs_str: str = Field(
+        default="./photo_analyzer/test",
+        validation_alias=AliasChoices("IMAGE_DIRS", "image_dirs_str"),
+    )
     db_path: Path = Field(default=Path("./photo_analyzer/photos.db"))
     world_cities_csv: Path = Field(default=Path("./photo_analyzer/world_cities_zh.csv"))
 
@@ -50,16 +55,36 @@ class Settings(BaseSettings):
             return None
         return v
 
+    @property
+    def image_dirs(self) -> list[Path]:
+        """Parse comma-separated directories string into list of Paths."""
+        if not self.image_dirs_str:
+            return [Path("./photo_analyzer/test")]
+        paths = [p.strip() for p in self.image_dirs_str.split(",") if p.strip()]
+        return [Path(p) for p in paths] if paths else [Path("./photo_analyzer/test")]
+
     def resolve_paths(self) -> None:
         """Resolve relative paths to absolute paths based on project root."""
         root = Path(__file__).parent.parent
 
-        if not self.image_dir.is_absolute():
-            self.image_dir = (root / self.image_dir).resolve()
+        # Resolve image_dirs via the property
+        resolved_dirs = []
+        for p in self.image_dirs:
+            if not p.is_absolute():
+                resolved_dirs.append((root / p).resolve())
+            else:
+                resolved_dirs.append(p)
+        self._resolved_image_dirs = resolved_dirs
+
         if not self.db_path.is_absolute():
             self.db_path = (root / self.db_path).resolve()
         if not self.world_cities_csv.is_absolute():
             self.world_cities_csv = (root / self.world_cities_csv).resolve()
+
+    @property
+    def resolved_image_dirs(self) -> list[Path]:
+        """Get resolved (absolute) image directories."""
+        return getattr(self, "_resolved_image_dirs", self.image_dirs)
 
 
 # Global settings instance

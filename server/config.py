@@ -4,7 +4,7 @@ This package is designed to be deployed independently from photo_analyzer.
 Both packages read from the same .env file, but each only defines what it needs.
 
 Shared settings (both packages need):
-    db_path, image_dir - paths to database and photo library
+    db_path - path to database
 
 Server-specific settings:
     memory_threshold, daily_photo_quantity - photo selection criteria
@@ -26,9 +26,8 @@ class ServerSettings(BaseSettings):
         extra="ignore",  # Ignore settings for other packages
     )
 
-    # Paths (shared with photo_analyzer - both packages access same DB and image library)
+    # Paths (shared with photo_analyzer - both packages access same DB)
     db_path: Path = Field(default=Path("./photo_analyzer/photos.db"))
-    image_dir: Path = Field(default=Path("./photo_analyzer/test"))
 
     # Photo selection criteria (server-only - selects N photos per day for display)
     memory_threshold: float = Field(default=70.0, ge=0, le=100)
@@ -48,8 +47,6 @@ class ServerSettings(BaseSettings):
 
         if not self.db_path.is_absolute():
             self.db_path = (root / self.db_path).resolve()
-        if not self.image_dir.is_absolute():
-            self.image_dir = (root / self.image_dir).resolve()
         if self.font_path and not self.font_path.is_absolute():
             self.font_path = (root / self.font_path).resolve()
 

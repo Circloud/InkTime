@@ -87,19 +87,15 @@ def get_analyzed_paths(conn: sqlite3.Connection, paths: list[str]) -> set[str]:
     return {row[0] for row in rows}
 
 
-def count_records(conn: sqlite3.Connection, prefix: str) -> int:
-    """Count records with paths starting with the given prefix."""
-    row = conn.execute(
-        "SELECT COUNT(*) FROM photo_records WHERE path LIKE ?",
-        (prefix + "%",),
-    ).fetchone()
+def count_records(conn: sqlite3.Connection) -> int:
+    """Count total records in database."""
+    row = conn.execute("SELECT COUNT(*) FROM photo_records").fetchone()
     return row[0] if row else 0
 
 
 def delete_orphaned_records(
     conn: sqlite3.Connection,
     existing_paths: list[str],
-    prefix: str,
 ) -> int:
     """Delete records that no longer have corresponding files on disk.
 
@@ -117,22 +113,20 @@ def delete_orphaned_records(
             [(p,) for p in chunk],
         )
 
-    before = count_records(conn, prefix)
+    before = count_records(conn)
 
     conn.execute(
         """
         DELETE FROM photo_records
-        WHERE path LIKE ?
-          AND NOT EXISTS (
+        WHERE NOT EXISTS (
                 SELECT 1 FROM _temp_existing_paths t
                 WHERE t.path = photo_records.path
           )
-        """,
-        (prefix + "%",),
+        """
     )
     conn.commit()
 
-    after = count_records(conn, prefix)
+    after = count_records(conn)
     return before - after
 
 

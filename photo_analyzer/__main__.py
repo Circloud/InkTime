@@ -40,26 +40,27 @@ def format_eta(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}"
 
 
-def is_screenshot(path: Path) -> bool:
-    """Check if path appears to be a screenshot."""
-    return "screenshot" in str(path).lower()
-
-
-def list_images(image_dir: Path, limit: int | None = None) -> list[Path]:
-    """Recursively scan directory for image files."""
+def list_images(image_dirs: list[Path], limit: int | None = None) -> list[Path]:
+    """Recursively scan multiple directories for image files."""
     files: list[Path] = []
-    logger.info(f"Scanning image directory: {image_dir}")
 
-    scanned = 0
-    for p in image_dir.rglob("*"):
-        scanned += 1
-        if scanned % 500 == 0:
-            logger.info(f"Scanned {scanned} files...")
-        if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS:
-            if not is_screenshot(p):
+    for image_dir in image_dirs:
+        if not image_dir.exists():
+            logger.warning(f"Directory does not exist: {image_dir}")
+            continue
+
+        logger.info(f"Scanning image directory: {image_dir}")
+        scanned = 0
+        for p in image_dir.rglob("*"):
+            scanned += 1
+            if scanned % 500 == 0:
+                logger.info(f"Scanned {scanned} files in {image_dir}...")
+            if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS:
                 files.append(p)
 
-    logger.info(f"Found {len(files)} images (scanned {scanned} files)")
+        logger.info(f"Found {len([f for f in files if str(f).startswith(str(image_dir))])} images in {image_dir}")
+
+    logger.info(f"Total: {len(files)} images across all directories")
     if limit is not None:
         files = files[:limit]
     return files
@@ -105,12 +106,13 @@ def main() -> None:
     """Main entry point for photo analysis."""
     setup_logging()
 
-    # Scan for images
-    logger.info("Scanning image directory...")
-    images = list_images(settings.image_dir)
+    # Scan for images across all configured directories
+    logger.info("Scanning image directories...")
+    images = list_images(settings.image_dirs)
 
     if not images:
-        raise SystemExit(f"No image files found in: {settings.image_dir}")
+        dirs_str = ", ".join(str(d) for d in settings.image_dirs)
+        raise SystemExit(f"No image files found in: {dirs_str}")
 
     # Initialize database
     conn = init_database(settings.db_path)
@@ -120,14 +122,13 @@ def main() -> None:
         max_km=settings.city_max_distance_km,
     )
 
-    # Sync delete: remove records for files no longer on disk
-    image_dir_prefix = str(settings.image_dir)
-    deleted = delete_orphaned_records(conn, [str(p) for p in images], image_dir_prefix)
+    # Sync delete: remove records for files no longer in configured directories
+    deleted = delete_orphaned_records(conn, [str(p) for p in images])
     if deleted > 0:
         logger.info(f"Cleaned up {deleted} orphaned database records")
 
     # Count existing records
-    existing_count = count_records(conn, image_dir_prefix)
+    existing_count = count_records(conn)
     logger.info(f"Database has {existing_count} analyzed photos")
 
     # Filter out already-analyzed photos

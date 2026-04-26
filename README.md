@@ -58,7 +58,7 @@ cp config-example.py config.py
 vi config.py
 ```
 必须配置以下字段：  
-照片库路径 ```IMAGE_DIR```  
+照片库路径 ```IMAGE_DIRS``` (逗号分隔支持多个目录)  
 VLM 模型接口 ```API_URL``` ```MODEL_NAME```  
 InkTime 使用 OpenAI 接口（LM Studio / 其它兼容服务均可）。
 
