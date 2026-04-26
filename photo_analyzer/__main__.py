@@ -109,11 +109,6 @@ def main() -> None:
     logger.info("Scanning image directory...")
     images = list_images(settings.image_dir)
 
-    # Save file list
-    filelist_path = Path(__file__).parent / "filelist.txt"
-    filelist_path.write_text("\n".join(str(p) for p in images), encoding="utf-8")
-    logger.info(f"Updated filelist.txt with {len(images)} files")
-
     if not images:
         raise SystemExit(f"No image files found in: {settings.image_dir}")
 
