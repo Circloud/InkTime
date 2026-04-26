@@ -93,7 +93,7 @@ def get_photos_for_month_day(
         rows = conn.execute(
             """
             SELECT path, memory_score, beauty_score, exif_datetime, location_city, caption
-            FROM photo_scores
+            FROM photo_records
             WHERE exif_datetime LIKE ?
               AND memory_score >= ?
               AND exif_datetime IS NOT NULL
@@ -111,7 +111,7 @@ def get_photo_by_path(path: str) -> PhotoCandidate | None:
         row = conn.execute(
             """
             SELECT path, memory_score, beauty_score, exif_datetime, location_city, caption
-            FROM photo_scores
+            FROM photo_records
             WHERE path = ?
             """,
             (path,),
@@ -126,7 +126,7 @@ def get_photo_by_path(path: str) -> PhotoCandidate | None:
 def count_photos() -> int:
     """Count total photos in database."""
     with get_db() as conn:
-        return conn.execute("SELECT COUNT(*) FROM photo_scores").fetchone()[0]
+        return conn.execute("SELECT COUNT(*) FROM photo_records").fetchone()[0]
 
 
 def get_available_month_days() -> list[str]:
@@ -135,7 +135,7 @@ def get_available_month_days() -> list[str]:
         rows = conn.execute(
             """
             SELECT DISTINCT substr(exif_datetime, 6, 5) as md
-            FROM photo_scores
+            FROM photo_records
             WHERE exif_datetime IS NOT NULL AND length(exif_datetime) >= 10
             ORDER BY md
             """

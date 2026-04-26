@@ -8,9 +8,9 @@ from .models import PhotoRecord
 
 logger = logging.getLogger(__name__)
 
-# SQL schema for photo_scores table
+# SQL schema for photo_records table
 SCHEMA_SQL = """
-CREATE TABLE IF NOT EXISTS photo_scores (
+CREATE TABLE IF NOT EXISTS photo_records (
     -- Primary key
     path              TEXT PRIMARY KEY,
 
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS photo_scores (
 
 
 def ensure_table(conn: sqlite3.Connection) -> None:
-    """Create the photo_scores table if it doesn't exist."""
+    """Create the photo_records table if it doesn't exist."""
     conn.execute(SCHEMA_SQL)
     conn.commit()
     logger.debug("Database table ensured")
@@ -49,7 +49,7 @@ def save_photo(conn: sqlite3.Connection, record: PhotoRecord) -> None:
     """Insert or replace a photo record in the database."""
     conn.execute(
         """
-        INSERT OR REPLACE INTO photo_scores
+        INSERT OR REPLACE INTO photo_records
         (path, description, photo_type, memory_score, beauty_score, reason, caption,
          width, height, exif_datetime, exif_model, exif_gps_lat, exif_gps_lon, location_city)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -81,7 +81,7 @@ def get_analyzed_paths(conn: sqlite3.Connection, paths: list[str]) -> set[str]:
 
     placeholders = ",".join("?" for _ in paths)
     rows = conn.execute(
-        f"SELECT path FROM photo_scores WHERE path IN ({placeholders})",
+        f"SELECT path FROM photo_records WHERE path IN ({placeholders})",
         paths,
     ).fetchall()
     return {row[0] for row in rows}
@@ -90,7 +90,7 @@ def get_analyzed_paths(conn: sqlite3.Connection, paths: list[str]) -> set[str]:
 def count_records(conn: sqlite3.Connection, prefix: str) -> int:
     """Count records with paths starting with the given prefix."""
     row = conn.execute(
-        "SELECT COUNT(*) FROM photo_scores WHERE path LIKE ?",
+        "SELECT COUNT(*) FROM photo_records WHERE path LIKE ?",
         (prefix + "%",),
     ).fetchone()
     return row[0] if row else 0
@@ -121,11 +121,11 @@ def delete_orphaned_records(
 
     conn.execute(
         """
-        DELETE FROM photo_scores
+        DELETE FROM photo_records
         WHERE path LIKE ?
           AND NOT EXISTS (
                 SELECT 1 FROM _temp_existing_paths t
-                WHERE t.path = photo_scores.path
+                WHERE t.path = photo_records.path
           )
         """,
         (prefix + "%",),
