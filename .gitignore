@@ -31,3 +31,6 @@ docs/
 
 # PlatformIO build artifacts
 firmware/.pio/
+
+# Server cache (persisted daily photos)
+server/cache/

@@ -41,6 +41,9 @@ class ServerSettings(BaseSettings):
     # Font for text overlay (caption, date, location)
     font_path: Path | None = None  # Path to TTF font file, e.g., "./fonts/LXGWHeartSerifMN.ttf"
 
+    # Cache directory for persisted daily photos
+    cache_dir: Path = Field(default=Path("./server/cache"))
+
     def resolve_paths(self) -> None:
         """Resolve relative paths to absolute paths based on project root."""
         root = Path(__file__).parent.parent
@@ -49,6 +52,8 @@ class ServerSettings(BaseSettings):
             self.db_path = (root / self.db_path).resolve()
         if self.font_path and not self.font_path.is_absolute():
             self.font_path = (root / self.font_path).resolve()
+        if not self.cache_dir.is_absolute():
+            self.cache_dir = (root / self.cache_dir).resolve()
 
 
 # Global settings instance
