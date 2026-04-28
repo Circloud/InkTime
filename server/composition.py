@@ -88,6 +88,7 @@ def wrap_text(
     font: ImageFont.FreeTypeFont,
     max_width: int,
     max_lines: int,
+    lang: str = "zh",
 ) -> list[str]:
     """Wrap text to fit within max_width, returning up to max_lines.
 
@@ -97,6 +98,7 @@ def wrap_text(
         font: Font to use for measuring
         max_width: Maximum width in pixels
         max_lines: Maximum number of lines
+        lang: Language code ('zh' for char-by-char, 'en' for word-boundary)
 
     Returns:
         List of wrapped lines (up to max_lines)
@@ -105,23 +107,56 @@ def wrap_text(
         return []
 
     lines: list[str] = []
-    line = ""
 
-    for char in text:
-        test = line + char
-        width = draw.textlength(test, font=font)
+    if lang == "en":
+        # English: break at word boundaries
+        words = text.split(" ")
+        line = ""
 
-        if width <= max_width:
-            line = test
-        else:
+        for word in words:
             if line:
-                lines.append(line)
-                if len(lines) >= max_lines:
-                    break
-            line = char
+                test = line + " " + word
+            else:
+                test = word
 
-    if line and len(lines) < max_lines:
-        lines.append(line)
+            width = draw.textlength(test, font=font)
+
+            if width <= max_width:
+                line = test
+            else:
+                if line:
+                    lines.append(line)
+                    if len(lines) >= max_lines:
+                        break
+                    line = word
+                else:
+                    # Single word too long, force break
+                    lines.append(word)
+                    if len(lines) >= max_lines:
+                        break
+                    line = ""
+
+        if line and len(lines) < max_lines:
+            lines.append(line)
+    else:
+        # Chinese: character by character
+        line = ""
+
+        for char in text:
+            test = line + char
+            width = draw.textlength(test, font=font)
+
+            if width <= max_width:
+                line = test
+            else:
+                if line:
+                    lines.append(line)
+                    if len(lines) >= max_lines:
+                        break
+                line = char
+
+        if line and len(lines) < max_lines:
+            lines.append(line)
 
     return lines
 
@@ -229,7 +264,7 @@ def draw_text_area(
 
     # Draw caption (1-2 lines)
     if caption:
-        lines = wrap_text(draw, caption, font_caption, text_width, max_lines=2)
+        lines = wrap_text(draw, caption, font_caption, text_width, max_lines=2, lang=lang)
         y = TEXT_AREA_TOP
         for line in lines:
             draw.text((TEXT_PADDING_X, y), line, font=font_caption, fill=(0, 0, 0))
