@@ -34,9 +34,11 @@ TEXT_AREA_TOP = CANVAS_HEIGHT - TEXT_AREA_HEIGHT + 10  # y = 710
 CAPTION_LINE_HEIGHT = 24  # Line height for caption
 DATE_LOCATION_Y = TEXT_AREA_TOP + 54  # y = 754
 
-# Font sizes
-CAPTION_FONT_SIZE = 22
-DATE_LOCATION_FONT_SIZE = 20
+# Font sizes (English fonts appear larger at same point size, so use smaller values)
+CAPTION_FONT_SIZE_ZH = 22
+CAPTION_FONT_SIZE_EN = 18
+DATE_LOCATION_FONT_SIZE_ZH = 20
+DATE_LOCATION_FONT_SIZE_EN = 16
 
 # Month names for English formatting
 MONTH_ABBR = {
@@ -207,9 +209,13 @@ def draw_text_area(
         # Fallback to the other font if primary not available
         font_path = font_path_zh or font_path_en
 
+    # Select font sizes based on language (English fonts appear larger)
+    caption_size = CAPTION_FONT_SIZE_ZH if lang == "zh" else CAPTION_FONT_SIZE_EN
+    meta_size = DATE_LOCATION_FONT_SIZE_ZH if lang == "zh" else DATE_LOCATION_FONT_SIZE_EN
+
     # Load fonts
-    font_caption = load_font(CAPTION_FONT_SIZE, font_path)
-    font_meta = load_font(DATE_LOCATION_FONT_SIZE, font_path)
+    font_caption = load_font(caption_size, font_path)
+    font_meta = load_font(meta_size, font_path)
 
     text_width = CANVAS_WIDTH - 2 * TEXT_PADDING_X
 
