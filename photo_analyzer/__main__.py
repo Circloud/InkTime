@@ -160,14 +160,24 @@ def main() -> None:
             logger.warning(f"Failed to analyze photo: {e}")
             continue
 
-        # Generate caption
-        caption = generate_caption(path)
+        # Generate captions for all configured languages
+        caption_json: dict[str, str] = {}
+        for lang in settings.display_languages:
+            caption = generate_caption(path, lang)
+            if caption:
+                caption_json[lang] = caption
+            else:
+                logger.warning(f"Failed to generate {lang} caption for {path}")
 
-        # Resolve city from GPS
+        # Resolve city from GPS for all configured languages
         if exif_info.gps_lat is not None and exif_info.gps_lon is not None:
-            location_city = city_resolver.resolve(exif_info.gps_lat, exif_info.gps_lon)
+            location_json = city_resolver.resolve(
+                exif_info.gps_lat,
+                exif_info.gps_lon,
+                settings.display_languages
+            )
         else:
-            location_city = ""
+            location_json = {}
 
         # Check if travel photo (outside home area)
         travel_bonus = not in_home_area(exif_info.gps_lat, exif_info.gps_lon)
@@ -177,8 +187,8 @@ def main() -> None:
             path=str(path),
             vlm_response=vlm_response,
             exif_info=exif_info,
-            caption=caption,
-            location_city=location_city,
+            caption_json=caption_json,
+            location_json=location_json,
             travel_bonus_applied=travel_bonus,
         )
 
@@ -186,7 +196,7 @@ def main() -> None:
         print(f"  Type: {record.photo_type}")
         print(f"  Memory Score: {record.memory_score:.1f}")
         print(f"  Beauty Score: {record.beauty_score:.1f}")
-        print(f"  Caption: {record.caption or '(none)'}")
+        print(f"  Captions: {record.caption_json}")
         print(f"  Description: {record.description}")
         print(f"  Reason: {record.reason}")
 

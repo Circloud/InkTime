@@ -38,18 +38,25 @@ DATE_LOCATION_Y = TEXT_AREA_TOP + 54  # y = 754
 CAPTION_FONT_SIZE = 22
 DATE_LOCATION_FONT_SIZE = 20
 
+# Month names for English formatting
+MONTH_ABBR = {
+    1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+    7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec",
+}
+
 
 # =============================================================================
 # Text Utilities
 # =============================================================================
-def format_date_display(date_str: str) -> str:
-    """Convert 'YYYY-MM-DD' to 'YYYY.M.D' format.
+def format_date_display(date_str: str, lang: str = "zh") -> str:
+    """Convert 'YYYY-MM-DD' to display format based on language.
 
     Args:
         date_str: Date string in YYYY-MM-DD format
+        lang: Language code ('zh' for numeric, 'en' for short format)
 
     Returns:
-        Formatted date string like '2026.4.26'
+        Formatted date string
     """
     if not date_str or len(date_str) < 10:
         return ""
@@ -60,9 +67,15 @@ def format_date_display(date_str: str) -> str:
 
     try:
         year = parts[0]
-        month = str(int(parts[1]))  # Remove leading zero
-        day = str(int(parts[2]))  # Remove leading zero
-        return f"{year}.{month}.{day}"
+        month = int(parts[1])
+        day = int(parts[2])
+
+        if lang == "en":
+            # English format: "Apr 27, 2026"
+            return f"{MONTH_ABBR.get(month, str(month))} {day}, {year}"
+        else:
+            # Chinese/numeric format: "2026.4.27"
+            return f"{year}.{month}.{day}"
     except (ValueError, IndexError):
         return date_str
 
@@ -173,21 +186,26 @@ def resize_photo_for_display(img: Image.Image) -> Image.Image:
 def draw_text_area(
     canvas: Image.Image,
     candidate: PhotoCandidate,
-    font_path: Path | None = None,
+    lang: str = "zh",
+    font_path_zh: Path | None = None,
+    font_path_en: Path | None = None,
 ) -> None:
     """Draw text overlay on the bottom 100px of canvas.
-
-    Layout:
-    - Caption: 1-2 lines starting at y=710
-    - Date: left-aligned at y=754
-    - Location: right-aligned at y=754
 
     Args:
         canvas: RGB canvas to draw on (modified in-place)
         candidate: Photo metadata for text content
-        font_path: Optional path to TTF font file
+        lang: Display language code
+        font_path_zh: Path to Chinese font
+        font_path_en: Path to English font
     """
     draw = ImageDraw.Draw(canvas)
+
+    # Select font based on language
+    font_path = font_path_zh if lang == "zh" else font_path_en
+    if not font_path:
+        # Fallback to the other font if primary not available
+        font_path = font_path_zh or font_path_en
 
     # Load fonts
     font_caption = load_font(CAPTION_FONT_SIZE, font_path)
@@ -195,8 +213,15 @@ def draw_text_area(
 
     text_width = CANVAS_WIDTH - 2 * TEXT_PADDING_X
 
+    # Get caption for display language (fallback to first available)
+    caption = ""
+    if candidate.caption_json:
+        caption = candidate.caption_json.get(lang, "")
+        if not caption:
+            # Fallback to first available language
+            caption = next(iter(candidate.caption_json.values()), "")
+
     # Draw caption (1-2 lines)
-    caption = candidate.caption or ""
     if caption:
         lines = wrap_text(draw, caption, font_caption, text_width, max_lines=2)
         y = TEXT_AREA_TOP
@@ -205,12 +230,19 @@ def draw_text_area(
             y += CAPTION_LINE_HEIGHT
 
     # Draw date (left-aligned)
-    date_str = format_date_display(candidate.exif_datetime)
+    date_str = format_date_display(candidate.exif_datetime, lang)
     if date_str:
         draw.text((TEXT_PADDING_X, DATE_LOCATION_Y), date_str, font=font_meta, fill=(0, 0, 0))
 
+    # Get location for display language (fallback to first available)
+    location = ""
+    if candidate.location_json:
+        location = candidate.location_json.get(lang, "")
+        if not location:
+            # Fallback to first available language
+            location = next(iter(candidate.location_json.values()), "")
+
     # Draw location (right-aligned)
-    location = candidate.location_city.strip() if candidate.location_city else ""
     if location:
         loc_width = draw.textlength(location, font=font_meta)
         loc_x = TEXT_PADDING_X + text_width - loc_width
@@ -225,14 +257,18 @@ def draw_text_area(
 def compose_canvas(
     photo_path: Union[str, Path],
     candidate: PhotoCandidate,
-    font_path: Union[str, Path, None] = None,
+    lang: str = "zh",
+    font_path_zh: Union[str, Path, None] = None,
+    font_path_en: Union[str, Path, None] = None,
 ) -> Image.Image:
     """Compose the full 480x800 canvas with photo and text overlay.
 
     Args:
         photo_path: Path to the photo file
         candidate: Photo metadata for text content
-        font_path: Optional path to TTF font file for Chinese text
+        lang: Display language code
+        font_path_zh: Path to Chinese font
+        font_path_en: Path to English font
 
     Returns:
         RGB image (480x800) ready for dithering
@@ -249,8 +285,13 @@ def compose_canvas(
     canvas.paste(photo_area, (0, 0))
 
     # Draw text overlay
-    font_path_obj = Path(font_path) if font_path else None
-    draw_text_area(canvas, candidate, font_path_obj)
+    draw_text_area(
+        canvas,
+        candidate,
+        lang=lang,
+        font_path_zh=Path(font_path_zh) if font_path_zh else None,
+        font_path_en=Path(font_path_en) if font_path_en else None,
+    )
 
     return canvas
 
@@ -261,23 +302,24 @@ def compose_canvas(
 def render(
     photo_path: Union[str, Path],
     candidate: PhotoCandidate,
-    font_path: Union[str, Path, None] = None,
+    lang: str = "zh",
+    font_path_zh: Union[str, Path, None] = None,
+    font_path_en: Union[str, Path, None] = None,
 ) -> bytes:
     """Render photo with text overlay to 192KB 4bpp binary.
-
-    This is the main entry point for generating e-ink display data
-    with the full layout (photo + caption + date + location).
 
     Args:
         photo_path: Path to the photo file
         candidate: Photo metadata for text content
-        font_path: Optional path to TTF font file
+        lang: Display language code
+        font_path_zh: Path to Chinese font
+        font_path_en: Path to English font
 
     Returns:
         192,000 bytes of 4bpp packed pixel data for ESP32 display
     """
     # Compose canvas with photo and text
-    canvas = compose_canvas(photo_path, candidate, font_path)
+    canvas = compose_canvas(photo_path, candidate, lang, font_path_zh, font_path_en)
 
     # Apply 6-color dithering
     dithered = apply_dither(canvas)
@@ -289,14 +331,18 @@ def render(
 def render_preview(
     photo_path: Union[str, Path],
     candidate: PhotoCandidate,
-    font_path: Union[str, Path, None] = None,
+    lang: str = "zh",
+    font_path_zh: Union[str, Path, None] = None,
+    font_path_en: Union[str, Path, None] = None,
 ) -> bytes:
     """Generate PNG preview of the composed layout.
 
     Args:
         photo_path: Path to the photo file
         candidate: Photo metadata for text content
-        font_path: Optional path to TTF font file
+        lang: Display language code
+        font_path_zh: Path to Chinese font
+        font_path_en: Path to English font
 
     Returns:
         PNG image data as bytes
@@ -304,7 +350,7 @@ def render_preview(
     from io import BytesIO
 
     # Compose canvas with photo and text
-    canvas = compose_canvas(photo_path, candidate, font_path)
+    canvas = compose_canvas(photo_path, candidate, lang, font_path_zh, font_path_en)
 
     # Apply dithering
     dithered = apply_dither(canvas)

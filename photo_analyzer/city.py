@@ -69,10 +69,20 @@ class CityResolver:
 
         logger.info(f"Loaded {len(self.cities)} cities from {csv_path}")
 
-    def resolve(self, lat: float | None, lon: float | None) -> str:
-        """Find the nearest city for given coordinates."""
+    def resolve(self, lat: float | None, lon: float | None, languages: list[str]) -> dict[str, str]:
+        """Find the nearest city for given coordinates.
+
+        Args:
+            lat: Latitude
+            lon: Longitude
+            languages: List of language codes to return (e.g., ['zh', 'en'])
+
+        Returns:
+            Dict mapping language codes to city names, e.g., {"zh": "深圳", "en": "Shenzhen"}
+            Empty dict if no valid city found or coordinates are None.
+        """
         if lat is None or lon is None:
-            return ""
+            return {}
 
         gx, gy = grid_key(lat, lon, self.grid_deg)
 
@@ -93,7 +103,7 @@ class CityResolver:
                         candidates.extend(bucket)
 
         if not candidates:
-            return ""
+            return {}
 
         # Find nearest city
         best_idx: int | None = None
@@ -107,10 +117,17 @@ class CityResolver:
                 best_idx = idx
 
         if best_idx is None or best_dist > self.max_km:
-            return ""
+            return {}
 
         _, _, name_zh, name_en = self.cities[best_idx]
-        return name_zh or name_en or ""
+
+        result: dict[str, str] = {}
+        if "zh" in languages and name_zh:
+            result["zh"] = name_zh
+        if "en" in languages and name_en:
+            result["en"] = name_en
+
+        return result
 
 
 def create_city_resolver(

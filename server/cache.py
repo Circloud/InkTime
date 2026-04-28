@@ -34,6 +34,7 @@ class CacheMetadata:
     """Metadata for persisted cache, serialized to JSON."""
 
     date: str  # ISO format: "2026-04-27"
+    rendered_lang: str  # Language used for rendering, e.g., "zh"
     photos: list[dict[str, Any]]  # PhotoCandidate fields + file references
 
     def save(self, cache_dir: Path) -> None:
@@ -41,7 +42,11 @@ class CacheMetadata:
         cache_dir.mkdir(parents=True, exist_ok=True)
         metadata_path = cache_dir / "metadata.json"
         with open(metadata_path, "w", encoding="utf-8") as f:
-            json.dump({"date": self.date, "photos": self.photos}, f, ensure_ascii=False, indent=2)
+            json.dump({
+                "date": self.date,
+                "rendered_lang": self.rendered_lang,
+                "photos": self.photos
+            }, f, ensure_ascii=False, indent=2)
 
     @classmethod
     def load(cls, cache_dir: Path) -> "CacheMetadata | None":
@@ -53,12 +58,17 @@ class CacheMetadata:
         with open(metadata_path, encoding="utf-8") as f:
             data = json.load(f)
 
-        return cls(date=data["date"], photos=data["photos"])
+        return cls(
+            date=data["date"],
+            rendered_lang=data.get("rendered_lang", "zh"),  # Default for old cache
+            photos=data["photos"]
+        )
 
 
 def save_cache_to_disk(
     cache_dir: Path,
     target_date: date,
+    rendered_lang: str,
     photos: list[CachedPhoto],
 ) -> None:
     """Save cache to disk: metadata.json + .bin + .png files.
@@ -66,6 +76,7 @@ def save_cache_to_disk(
     Args:
         cache_dir: Directory to save cache files
         target_date: Date of the cache
+        rendered_lang: Language used for rendering
         photos: List of cached photos to persist
     """
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -83,46 +94,53 @@ def save_cache_to_disk(
         preview_data = render_preview(
             photo.candidate.path,
             photo.candidate,
-            font_path=settings.font_path,
+            lang=rendered_lang,
+            font_path_zh=settings.font_path_zh,
+            font_path_en=settings.font_path_en,
         )
         (cache_dir / preview_file).write_bytes(preview_data)
 
-        # Build metadata entry
+        # Build metadata entry (store full JSON)
         photo_entries.append({
             "index": i,
             "path": photo.candidate.path,
             "memory_score": photo.candidate.memory_score,
             "beauty_score": photo.candidate.beauty_score,
             "exif_datetime": photo.candidate.exif_datetime,
-            "location_city": photo.candidate.location_city,
-            "caption": photo.candidate.caption,
+            "location_json": photo.candidate.location_json,
+            "caption_json": photo.candidate.caption_json,
             "binary_file": binary_file,
             "preview_file": preview_file,
         })
 
     # Save metadata
-    metadata = CacheMetadata(date=target_date.isoformat(), photos=photo_entries)
+    metadata = CacheMetadata(
+        date=target_date.isoformat(),
+        rendered_lang=rendered_lang,
+        photos=photo_entries
+    )
     metadata.save(cache_dir)
 
 
-def load_cache_from_disk(cache_dir: Path) -> tuple[date | None, list[CachedPhoto]]:
+def load_cache_from_disk(cache_dir: Path) -> tuple[date | None, str, list[CachedPhoto]]:
     """Load cache from disk if it exists and matches today.
 
     Args:
         cache_dir: Directory containing cache files
 
     Returns:
-        Tuple of (date, list of CachedPhoto). Returns (None, []) if no valid cache.
+        Tuple of (date, rendered_lang, list of CachedPhoto).
+        Returns (None, "", []) if no valid cache.
     """
     metadata = CacheMetadata.load(cache_dir)
     if not metadata:
-        return None, []
+        return None, "", []
 
     # Parse date
     try:
         cache_date = date.fromisoformat(metadata.date)
     except ValueError:
-        return None, []
+        return None, "", []
 
     # Reconstruct CachedPhoto objects
     photos: list[CachedPhoto] = []
@@ -133,8 +151,8 @@ def load_cache_from_disk(cache_dir: Path) -> tuple[date | None, list[CachedPhoto
             memory_score=entry["memory_score"],
             beauty_score=entry["beauty_score"],
             exif_datetime=entry["exif_datetime"],
-            location_city=entry["location_city"],
-            caption=entry["caption"],
+            location_json=entry.get("location_json", {}),
+            caption_json=entry.get("caption_json", {}),
         )
 
         # Load binary
@@ -145,7 +163,7 @@ def load_cache_from_disk(cache_dir: Path) -> tuple[date | None, list[CachedPhoto
 
         photos.append(CachedPhoto(candidate=candidate, binary=binary))
 
-    return cache_date, photos
+    return cache_date, metadata.rendered_lang, photos
 
 
 def clear_cache_dir(cache_dir: Path) -> None:
@@ -168,26 +186,37 @@ class DailyPhotoCache:
     def __init__(self, cache_dir: Path | None = None) -> None:
         self._cache_dir = cache_dir or settings.cache_dir
         self._date: date | None = None
+        self._rendered_lang: str = ""
         self._photos: list[CachedPhoto] = []
 
         # Try to load from disk on init
         self._load_from_disk()
 
     def _load_from_disk(self) -> None:
-        """Load cache from disk if it exists and matches today."""
-        cache_date, photos = load_cache_from_disk(self._cache_dir)
+        """Load cache from disk if it exists and is valid."""
+        cache_date, rendered_lang, photos = load_cache_from_disk(self._cache_dir)
 
-        if cache_date == date.today() and photos:
-            self._date = cache_date
-            self._photos = photos
-            print(f"[InkTime] Loaded {len(photos)} cached photos from disk for {cache_date}")
-        elif cache_date and cache_date != date.today():
-            # Old cache from different day - clear it
+        if not cache_date or not photos:
+            return
+
+        today = date.today()
+
+        # Check if cache is from today and same language
+        if cache_date != today:
             print(f"[InkTime] Clearing old cache from {cache_date}")
             clear_cache_dir(self._cache_dir)
+        elif rendered_lang != settings.default_language:
+            print(f"[InkTime] Language changed from {rendered_lang} to {settings.default_language}")
+            clear_cache_dir(self._cache_dir)
+        else:
+            # Cache is valid
+            self._date = cache_date
+            self._rendered_lang = rendered_lang
+            self._photos = photos
+            print(f"[InkTime] Loaded {len(photos)} cached photos from disk for {cache_date} ({rendered_lang})")
 
     def get(self, index: int) -> CachedPhoto:
-        """Get photo by index (0-indexed). Triggers refresh if new day.
+        """Get photo by index (0-indexed). Triggers refresh if new day or language change.
 
         Args:
             index: Photo index (0, 1, 2, ...)
@@ -201,8 +230,8 @@ class DailyPhotoCache:
         """
         today = date.today()
 
-        # Refresh if new day or empty
-        if self._date != today or not self._photos:
+        # Refresh if new day, language change, or empty
+        if self._date != today or self._rendered_lang != settings.default_language or not self._photos:
             self._refresh(today)
 
         if index < 0 or index >= len(self._photos):
@@ -211,9 +240,9 @@ class DailyPhotoCache:
         return self._photos[index]
 
     def get_all(self) -> list[CachedPhoto]:
-        """Get all cached photos. Triggers refresh if new day."""
+        """Get all cached photos. Triggers refresh if new day or language change."""
         today = date.today()
-        if self._date != today or not self._photos:
+        if self._date != today or self._rendered_lang != settings.default_language or not self._photos:
             self._refresh(today)
         return self._photos
 
@@ -222,6 +251,9 @@ class DailyPhotoCache:
         # Clear old cache
         if self._cache_dir.exists():
             clear_cache_dir(self._cache_dir)
+
+        # Get current language
+        current_lang = settings.default_language
 
         # Select photos
         candidates = select_photos_for_date(target_date)
@@ -233,7 +265,9 @@ class DailyPhotoCache:
                 binary = render(
                     candidate.path,
                     candidate,
-                    font_path=settings.font_path,
+                    lang=current_lang,
+                    font_path_zh=settings.font_path_zh,
+                    font_path_en=settings.font_path_en,
                 )
                 photos.append(CachedPhoto(candidate=candidate, binary=binary))
             except Exception as e:
@@ -245,12 +279,13 @@ class DailyPhotoCache:
             raise RuntimeError("No photos could be rendered")
 
         self._date = target_date
+        self._rendered_lang = current_lang
         self._photos = photos
 
         # Persist to disk
         try:
-            save_cache_to_disk(self._cache_dir, target_date, photos)
-            print(f"[InkTime] Saved {len(photos)} photos to cache for {target_date}")
+            save_cache_to_disk(self._cache_dir, target_date, current_lang, photos)
+            print(f"[InkTime] Saved {len(photos)} photos to cache for {target_date} ({current_lang})")
         except Exception as e:
             print(f"Warning: Failed to save cache to disk: {e}")
 
@@ -258,6 +293,11 @@ class DailyPhotoCache:
     def current_date(self) -> date | None:
         """Get the date of current cache."""
         return self._date
+
+    @property
+    def rendered_language(self) -> str:
+        """Get the language used for rendering."""
+        return self._rendered_lang
 
     @property
     def count(self) -> int:

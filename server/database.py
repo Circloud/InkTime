@@ -5,9 +5,10 @@ Uses the schema from photo_analyzer (individual columns, not JSON blob).
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Iterator
 
@@ -22,8 +23,8 @@ class PhotoCandidate:
     memory_score: float
     beauty_score: float
     exif_datetime: str  # YYYY-MM-DD format
-    location_city: str
-    caption: str | None
+    location_json: dict[str, str] = field(default_factory=dict)  # {"zh": "深圳", "en": "Shenzhen"}
+    caption_json: dict[str, str] = field(default_factory=dict)  # {"zh": "...", "en": "..."}
 
     @property
     def date(self) -> date | None:
@@ -65,13 +66,28 @@ def get_db() -> Iterator[sqlite3.Connection]:
 
 def _row_to_candidate(row: sqlite3.Row) -> PhotoCandidate:
     """Convert a database row to PhotoCandidate."""
+    # Parse JSON fields
+    caption_json = {}
+    if row["caption_json"]:
+        try:
+            caption_json = json.loads(row["caption_json"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    location_json = {}
+    if row["location_json"]:
+        try:
+            location_json = json.loads(row["location_json"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     return PhotoCandidate(
         path=row["path"],
         memory_score=row["memory_score"] or 0.0,
         beauty_score=row["beauty_score"] or 0.0,
         exif_datetime=row["exif_datetime"] or "",
-        location_city=row["location_city"] or "",
-        caption=row["caption"],
+        location_json=location_json,
+        caption_json=caption_json,
     )
 
 
@@ -92,7 +108,7 @@ def get_photos_for_month_day(
     with get_db() as conn:
         rows = conn.execute(
             """
-            SELECT path, memory_score, beauty_score, exif_datetime, location_city, caption
+            SELECT path, memory_score, beauty_score, exif_datetime, location_json, caption_json
             FROM photo_records
             WHERE exif_datetime LIKE ?
               AND memory_score >= ?
@@ -110,7 +126,7 @@ def get_photo_by_path(path: str) -> PhotoCandidate | None:
     with get_db() as conn:
         row = conn.execute(
             """
-            SELECT path, memory_score, beauty_score, exif_datetime, location_city, caption
+            SELECT path, memory_score, beauty_score, exif_datetime, location_json, caption_json
             FROM photo_records
             WHERE path = ?
             """,

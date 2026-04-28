@@ -1,6 +1,6 @@
 """Data models for photo analysis."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 def _convert_exif_to_iso_date(exif_datetime: str | None) -> str | None:
@@ -52,14 +52,14 @@ class PhotoRecord:
     memory_score: float | None = None
     beauty_score: float | None = None
     reason: str | None = None
-    caption: str | None = None  # Creative one-liner for display
+    caption_json: dict[str, str] = field(default_factory=dict)  # {"zh": "...", "en": "..."}
     width: int | None = None
     height: int | None = None
     exif_datetime: str | None = None  # YYYY-MM-DD format
     exif_model: str | None = None
     exif_gps_lat: float | None = None
     exif_gps_lon: float | None = None
-    location_city: str = ""  # City from GPS lookup
+    location_json: dict[str, str] = field(default_factory=dict)  # {"zh": "深圳", "en": "Shenzhen"}
 
     @classmethod
     def from_analysis(
@@ -67,8 +67,8 @@ class PhotoRecord:
         path: str,
         vlm_response: VlmResponse,
         exif_info: ExifInfo,
-        caption: str | None,
-        location_city: str,
+        caption_json: dict[str, str],
+        location_json: dict[str, str],
         travel_bonus_applied: bool = False,
     ) -> "PhotoRecord":
         """Create a PhotoRecord from VLM response and EXIF info."""
@@ -83,12 +83,12 @@ class PhotoRecord:
             memory_score=memory_score,
             beauty_score=vlm_response.beauty_score,
             reason=vlm_response.reason,
-            caption=caption,
+            caption_json=caption_json,
             width=exif_info.width,
             height=exif_info.height,
             exif_datetime=_convert_exif_to_iso_date(exif_info.datetime),
             exif_model=exif_info.model,
             exif_gps_lat=exif_info.gps_lat,
             exif_gps_lon=exif_info.gps_lon,
-            location_city=location_city,
+            location_json=location_json,
         )

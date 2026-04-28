@@ -1,5 +1,6 @@
 """SQLite database operations for photo scores."""
 
+import json
 import logging
 import sqlite3
 from pathlib import Path
@@ -20,7 +21,7 @@ CREATE TABLE IF NOT EXISTS photo_records (
     memory_score      REAL,
     beauty_score      REAL,
     reason            TEXT,
-    caption           TEXT,
+    caption_json      TEXT,  -- JSON: {"zh": "...", "en": "..."}
 
     -- Image dimensions (from PIL Image.size, NOT from EXIF)
     width             INTEGER,
@@ -33,7 +34,7 @@ CREATE TABLE IF NOT EXISTS photo_records (
     exif_gps_lon      REAL,
 
     -- Computed field (NOT from EXIF)
-    location_city     TEXT
+    location_json     TEXT  -- JSON: {"zh": "深圳", "en": "Shenzhen"}
 )
 """
 
@@ -50,8 +51,8 @@ def save_photo(conn: sqlite3.Connection, record: PhotoRecord) -> None:
     conn.execute(
         """
         INSERT OR REPLACE INTO photo_records
-        (path, description, photo_type, memory_score, beauty_score, reason, caption,
-         width, height, exif_datetime, exif_model, exif_gps_lat, exif_gps_lon, location_city)
+        (path, description, photo_type, memory_score, beauty_score, reason, caption_json,
+         width, height, exif_datetime, exif_model, exif_gps_lat, exif_gps_lon, location_json)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
@@ -61,14 +62,14 @@ def save_photo(conn: sqlite3.Connection, record: PhotoRecord) -> None:
             record.memory_score,
             record.beauty_score,
             record.reason,
-            record.caption,
+            json.dumps(record.caption_json, ensure_ascii=False) if record.caption_json else None,
             record.width,
             record.height,
             record.exif_datetime,
             record.exif_model,
             record.exif_gps_lat,
             record.exif_gps_lon,
-            record.location_city,
+            json.dumps(record.location_json, ensure_ascii=False) if record.location_json else None,
         ),
     )
     conn.commit()
@@ -85,6 +86,27 @@ def get_analyzed_paths(conn: sqlite3.Connection, paths: list[str]) -> set[str]:
         paths,
     ).fetchall()
     return {row[0] for row in rows}
+
+
+def get_photos_missing_language(conn: sqlite3.Connection, lang: str) -> list[str]:
+    """Find photo paths that don't have a caption in the specified language.
+
+    Args:
+        conn: Database connection
+        lang: Language code to check (e.g., 'zh', 'en')
+
+    Returns:
+        List of paths missing the specified language caption
+    """
+    rows = conn.execute(
+        """
+        SELECT path FROM photo_records
+        WHERE caption_json IS NULL
+           OR json_extract(caption_json, ?) IS NULL
+        """,
+        (f'$.{lang}',),
+    ).fetchall()
+    return [row[0] for row in rows]
 
 
 def count_records(conn: sqlite3.Connection) -> int:

@@ -42,8 +42,8 @@ def sample_candidate(test_image_path: Path) -> PhotoCandidate:
         memory_score=85.5,
         beauty_score=90.0,
         exif_datetime="2024-07-15",
-        location_city="深圳",
-        caption="测试文案",
+        location_json={"zh": "深圳", "en": "Shenzhen"},
+        caption_json={"zh": "测试文案", "en": "Test caption"},
     )
 
 
@@ -65,6 +65,7 @@ class TestCacheMetadata:
         """Metadata should serialize to valid JSON file."""
         metadata = CacheMetadata(
             date="2026-04-27",
+            rendered_lang="zh",
             photos=[
                 {
                     "index": 0,
@@ -72,8 +73,8 @@ class TestCacheMetadata:
                     "memory_score": sample_cached_photo.candidate.memory_score,
                     "beauty_score": sample_cached_photo.candidate.beauty_score,
                     "exif_datetime": sample_cached_photo.candidate.exif_datetime,
-                    "location_city": sample_cached_photo.candidate.location_city,
-                    "caption": sample_cached_photo.candidate.caption,
+                    "location_json": sample_cached_photo.candidate.location_json,
+                    "caption_json": sample_cached_photo.candidate.caption_json,
                     "binary_file": "photo_0.bin",
                     "preview_file": "photo_0.png",
                 }
@@ -89,6 +90,7 @@ class TestCacheMetadata:
             data = json.load(f)
 
         assert data["date"] == "2026-04-27"
+        assert data["rendered_lang"] == "zh"
         assert len(data["photos"]) == 1
         assert data["photos"][0]["path"] == sample_cached_photo.candidate.path
 
@@ -99,6 +101,7 @@ class TestCacheMetadata:
         # Write metadata
         metadata = CacheMetadata(
             date="2026-04-27",
+            rendered_lang="zh",
             photos=[
                 {
                     "index": 0,
@@ -106,8 +109,8 @@ class TestCacheMetadata:
                     "memory_score": sample_cached_photo.candidate.memory_score,
                     "beauty_score": sample_cached_photo.candidate.beauty_score,
                     "exif_datetime": sample_cached_photo.candidate.exif_datetime,
-                    "location_city": sample_cached_photo.candidate.location_city,
-                    "caption": sample_cached_photo.candidate.caption,
+                    "location_json": sample_cached_photo.candidate.location_json,
+                    "caption_json": sample_cached_photo.candidate.caption_json,
                     "binary_file": "photo_0.bin",
                     "preview_file": "photo_0.png",
                 }
@@ -120,6 +123,7 @@ class TestCacheMetadata:
 
         assert loaded is not None
         assert loaded.date == "2026-04-27"
+        assert loaded.rendered_lang == "zh"
         assert len(loaded.photos) == 1
         assert loaded.photos[0]["path"] == sample_cached_photo.candidate.path
 
@@ -139,7 +143,7 @@ class TestDiskPersistence:
         from server.cache import save_cache_to_disk
 
         photos = [sample_cached_photo]
-        save_cache_to_disk(temp_cache_dir, date(2026, 4, 27), photos)
+        save_cache_to_disk(temp_cache_dir, date(2026, 4, 27), "zh", photos)
 
         assert (temp_cache_dir / "metadata.json").exists()
         assert (temp_cache_dir / "photo_0.bin").exists()
@@ -152,11 +156,12 @@ class TestDiskPersistence:
         from server.cache import save_cache_to_disk, load_cache_from_disk
 
         photos = [sample_cached_photo]
-        save_cache_to_disk(temp_cache_dir, date(2026, 4, 27), photos)
+        save_cache_to_disk(temp_cache_dir, date(2026, 4, 27), "zh", photos)
 
-        loaded_date, loaded_photos = load_cache_from_disk(temp_cache_dir)
+        loaded_date, loaded_lang, loaded_photos = load_cache_from_disk(temp_cache_dir)
 
         assert loaded_date == date(2026, 4, 27)
+        assert loaded_lang == "zh"
         assert len(loaded_photos) == 1
         assert loaded_photos[0].candidate.path == sample_cached_photo.candidate.path
         assert loaded_photos[0].binary == sample_cached_photo.binary
@@ -168,7 +173,7 @@ class TestDiskPersistence:
         from server.cache import save_cache_to_disk, clear_cache_dir
 
         photos = [sample_cached_photo]
-        save_cache_to_disk(temp_cache_dir, date(2026, 4, 27), photos)
+        save_cache_to_disk(temp_cache_dir, date(2026, 4, 27), "zh", photos)
 
         clear_cache_dir(temp_cache_dir)
 

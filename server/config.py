@@ -13,7 +13,7 @@ Server-specific settings:
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,11 +38,48 @@ class ServerSettings(BaseSettings):
     flask_port: int = 8765
     debug: bool = False
 
-    # Font for text overlay (caption, date, location)
-    font_path: Path | None = None  # Path to TTF font file, e.g., "./fonts/LXGWHeartSerifMN.ttf"
+    # Language settings
+    display_languages_str: str = Field(
+        default="zh",
+        validation_alias=AliasChoices("DISPLAY_LANGUAGES", "display_languages_str"),
+    )
+
+    # Language-specific fonts (required for each configured language)
+    font_path_zh: Path | None = None
+    font_path_en: Path | None = None
 
     # Cache directory for persisted daily photos
     cache_dir: Path = Field(default=Path("./server/cache"))
+
+    @property
+    def display_languages(self) -> list[str]:
+        """Parse comma-separated languages string into list."""
+        if not self.display_languages_str:
+            return ["zh"]
+        langs = [lang.strip() for lang in self.display_languages_str.split(",") if lang.strip()]
+        return langs if langs else ["zh"]
+
+    @property
+    def default_language(self) -> str:
+        """First language in list is the default display language."""
+        return self.display_languages[0] if self.display_languages else "zh"
+
+    def get_font_path(self, lang: str) -> Path:
+        """Get font path for a specific language.
+
+        Raises:
+            ValueError: If font for the language is not configured
+        """
+        font_map = {
+            "zh": self.font_path_zh,
+            "en": self.font_path_en,
+        }
+
+        font_path = font_map.get(lang)
+        if not font_path:
+            raise ValueError(f"Font not configured for language: {lang}")
+
+        return font_path
 
     def resolve_paths(self) -> None:
         """Resolve relative paths to absolute paths based on project root."""
@@ -50,8 +87,10 @@ class ServerSettings(BaseSettings):
 
         if not self.db_path.is_absolute():
             self.db_path = (root / self.db_path).resolve()
-        if self.font_path and not self.font_path.is_absolute():
-            self.font_path = (root / self.font_path).resolve()
+        if self.font_path_zh and not self.font_path_zh.is_absolute():
+            self.font_path_zh = (root / self.font_path_zh).resolve()
+        if self.font_path_en and not self.font_path_en.is_absolute():
+            self.font_path_en = (root / self.font_path_en).resolve()
         if not self.cache_dir.is_absolute():
             self.cache_dir = (root / self.cache_dir).resolve()
 

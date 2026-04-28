@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     home_lon: float = 114.057865
     home_radius_km: float = 60.0
 
+    # Language settings
+    display_languages_str: str = Field(
+        default="zh",
+        validation_alias=AliasChoices("DISPLAY_LANGUAGES", "display_languages_str"),
+    )
+
     @field_validator("batch_limit", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):
@@ -85,6 +91,19 @@ class Settings(BaseSettings):
     def resolved_image_dirs(self) -> list[Path]:
         """Get resolved (absolute) image directories."""
         return getattr(self, "_resolved_image_dirs", self.image_dirs)
+
+    @property
+    def display_languages(self) -> list[str]:
+        """Parse comma-separated languages string into list."""
+        if not self.display_languages_str:
+            return ["zh"]
+        langs = [lang.strip() for lang in self.display_languages_str.split(",") if lang.strip()]
+        return langs if langs else ["zh"]
+
+    @property
+    def default_language(self) -> str:
+        """First language in list is the default display language."""
+        return self.display_languages[0] if self.display_languages else "zh"
 
 
 # Global settings instance
