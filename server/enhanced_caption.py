@@ -46,20 +46,20 @@ CAPTION_PROMPTS = {
 你的目标不是描述画面，而是为画面补上一点"画外之意"。
 
 创作原则：
-1. 避免使用以下词语：世界、梦、时光、岁月、温柔、治愈、刚刚好、悄悄、慢慢 等（但不是绝对禁止）。
+1. 避免使用以下陈词滥调式的词语（但不绝对禁止）：世界、梦、时光、岁月、温柔、治愈、刚刚好、悄悄、慢慢 等。
 2. 严禁使用如下句式：……里……着整个世界；……里……着整个夏天；……得像……（简单的比喻）；……比……还……；……得比……更……。
 3. 只基于图片中能确定的信息进行联想，不要虚构时间、人物关系、事件背景。
-4. 文案应自然、有趣，带一点幽默或者诗意，但请避免煽情、鸡汤。
-5. 不要复述画面内容本身，而是写"看完画面后，心里多出来的一句话"。
-6. 可以偏向以下风格之一：
-   - 日常中的微妙情绪
+4. 文案应自然、有趣，带一点幽默或者诗意，但请避免过度煽情、鸡汤、张扬的表述。
+5. 不要复述画面内容本身，而是写"看完画面后，心中的一句独白"。
+6. 可以尝试从以下角度进行创作：
+   - 捕捉画面中的微妙情绪
    - 轻微自嘲或冷幽默
    - 对时间、记忆、瞬间的含蓄感受
-   - 看似平淡但有余味的一句判断
+   - 看似平淡却别有余味的一句话
 7. 避免小学生作文式的、套路式的模板化表达。
 
 格式要求：
-- 只输出一句中文短句，不要换行，不要引号，不要任何解释。
+- 只输出一句中文短句，不需要任何其他解释，句末须加标点。
 - 建议长度 8～24 个汉字，最多不超过 30 个汉字。
 - 不要出现"这张照片""这一刻""那天"等指代照片本身的词。""",
         "user": "请基于这张照片，生成一句符合规则的中文文案。",
@@ -76,12 +76,12 @@ Writing principles:
    - Subtle emotion in everyday moments
    - Light self-deprecation or dry humor
    - A quiet observation that lingers
+   - A seemingly plain yet subtly meaningful sentence
 
 Format:
-- Output exactly one short sentence in English.
-- No quotation marks. No explanations.
+- Output exactly one short sentence in English. No explanations or additional text.
 - Aim for 5–15 words, maximum 20 words.
-- Don't reference "this photo" or "this moment." """,
+- Don't reference "this photo", "this picture", or similar phrases that point to the image itself.""",
         "user": "Based on this photo, write a caption that fits the rules above.",
     },
 }
