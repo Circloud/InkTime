@@ -64,6 +64,7 @@ def test_generate_enhanced_caption_success():
                 mock_settings.enhanced_api_key = "test-key"
                 mock_settings.enhanced_model_name = "gpt-4o-mini"
                 mock_settings.enhanced_timeout = 60
+                mock_settings.enhanced_retry_times = 3
 
                 from server.enhanced_caption import generate_enhanced_caption
                 result = generate_enhanced_caption(Path("/test/photo.jpg"), "en")
@@ -85,6 +86,7 @@ def test_generate_enhanced_caption_api_failure():
                 mock_settings.enhanced_api_key = "test-key"
                 mock_settings.enhanced_model_name = "gpt-4o-mini"
                 mock_settings.enhanced_timeout = 60
+                mock_settings.enhanced_retry_times = 3
 
                 from server.enhanced_caption import generate_enhanced_caption
                 result = generate_enhanced_caption(Path("/test/photo.jpg"), "en")

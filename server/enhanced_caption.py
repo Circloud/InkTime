@@ -191,33 +191,48 @@ def generate_enhanced_caption(path: Path, lang: str) -> str | None:
         "Authorization": f"Bearer {settings.enhanced_api_key}",
     }
 
-    # Call API
-    try:
-        resp = requests.post(
-            settings.enhanced_base_url,
-            headers=headers,
-            json=payload,
-            timeout=settings.enhanced_timeout,
-        )
-    except requests.RequestException as e:
-        logger.error(f"Enhanced caption API request failed: {e}")
-        return None
+    # Call API with retry
+    max_retries = settings.enhanced_retry_times
+    last_error: str | None = None
 
-    if not resp.ok:
-        logger.error(f"Enhanced caption API error: HTTP {resp.status_code}")
-        return None
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = requests.post(
+                settings.enhanced_base_url,
+                headers=headers,
+                json=payload,
+                timeout=settings.enhanced_timeout,
+            )
 
-    # Parse response
-    try:
-        data = resp.json()
-        content = data["choices"][0]["message"]["content"]
-        obj = json.loads(content)
-        caption = obj.get("caption", "")
-    except (KeyError, IndexError, json.JSONDecodeError) as e:
-        logger.error(f"Failed to parse enhanced caption response: {e}")
-        return None
+            if not resp.ok:
+                last_error = f"HTTP {resp.status_code}"
+                if attempt < max_retries:
+                    logger.warning(f"Enhanced caption API error (attempt {attempt}/{max_retries}): {last_error}, retrying...")
+                    continue
+                else:
+                    logger.error(f"Enhanced caption API error after {max_retries} attempts: {last_error}")
+                    return None
 
-    if not isinstance(caption, str):
-        caption = str(caption)
+            # Parse response
+            data = resp.json()
+            content = data["choices"][0]["message"]["content"]
+            obj = json.loads(content)
+            caption = obj.get("caption", "")
 
-    return caption.strip() or None
+            if not isinstance(caption, str):
+                caption = str(caption)
+
+            return caption.strip() or None
+
+        except requests.RequestException as e:
+            last_error = str(e)
+            if attempt < max_retries:
+                logger.warning(f"Enhanced caption API request failed (attempt {attempt}/{max_retries}): {e}, retrying...")
+            else:
+                logger.error(f"Enhanced caption API request failed after {max_retries} attempts: {e}")
+                return None
+        except (KeyError, IndexError, json.JSONDecodeError) as e:
+            logger.error(f"Failed to parse enhanced caption response: {e}")
+            return None
+
+    return None

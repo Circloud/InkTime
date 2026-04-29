@@ -57,6 +57,7 @@ class ServerSettings(BaseSettings):
     enhanced_api_key: str | None = None
     enhanced_model_name: str = "gpt-4o-mini"
     enhanced_timeout: int = 60
+    enhanced_retry_times: int = 3
 
     @property
     def display_languages(self) -> list[str]:
