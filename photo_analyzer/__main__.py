@@ -66,16 +66,25 @@ def list_images(image_dirs: list[Path], limit: int | None = None) -> list[Path]:
     return files
 
 
-def in_home_area(lat: float | None, lon: float | None) -> bool:
-    """Check if coordinates are within the home/local area."""
+def in_local_area(
+    lat: float | None,
+    lon: float | None,
+    local_areas: list[tuple[float, float, float]],
+) -> bool:
+    """Check if coordinates are within ANY configured local area.
+
+    Returns True if photo is within at least one local area (not travel).
+    Returns False if photo is outside all areas (travel) or has no GPS.
+    """
     if lat is None or lon is None:
         return False
 
-    try:
-        d = haversine_km(lat, lon, settings.home_lat, settings.home_lon)
-        return d <= settings.home_radius_km
-    except Exception:
-        return False
+    for area_lat, area_lon, area_radius in local_areas:
+        d = haversine_km(lat, lon, area_lat, area_lon)
+        if d <= area_radius:
+            return True
+
+    return False
 
 
 def print_progress(
@@ -179,8 +188,8 @@ def main() -> None:
         else:
             location_json = {}
 
-        # Check if travel photo (outside home area)
-        travel_bonus = not in_home_area(exif_info.gps_lat, exif_info.gps_lon)
+        # Check if travel photo (outside all local areas)
+        travel_bonus = not in_local_area(exif_info.gps_lat, exif_info.gps_lon, settings.local_areas)
 
         # Create record
         record = PhotoRecord.from_analysis(

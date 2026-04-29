@@ -4,9 +4,13 @@ Loads from .env file and environment variables.
 Environment variables take precedence over .env file.
 """
 
+import logging
 from pathlib import Path
+
 from pydantic import Field, field_validator, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -42,10 +46,27 @@ class Settings(BaseSettings):
     city_grid_deg: float = 1.0
     city_max_distance_km: float = 80.0
 
-    # Home location
-    home_lat: float = 22.543096
-    home_lon: float = 114.057865
-    home_radius_km: float = 60.0
+    # Local areas for travel detection (up to 5 areas)
+    # Each area has LAT, LON, RADIUS
+    local_0_lat: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_0_LAT", "local_0_lat"))
+    local_0_lon: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_0_LON", "local_0_lon"))
+    local_0_radius: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_0_RADIUS", "local_0_radius"))
+
+    local_1_lat: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_1_LAT", "local_1_lat"))
+    local_1_lon: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_1_LON", "local_1_lon"))
+    local_1_radius: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_1_RADIUS", "local_1_radius"))
+
+    local_2_lat: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_2_LAT", "local_2_lat"))
+    local_2_lon: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_2_LON", "local_2_lon"))
+    local_2_radius: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_2_RADIUS", "local_2_radius"))
+
+    local_3_lat: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_3_LAT", "local_3_lat"))
+    local_3_lon: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_3_LON", "local_3_lon"))
+    local_3_radius: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_3_RADIUS", "local_3_radius"))
+
+    local_4_lat: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_4_LAT", "local_4_lat"))
+    local_4_lon: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_4_LON", "local_4_lon"))
+    local_4_radius: float | None = Field(default=None, validation_alias=AliasChoices("LOCAL_4_RADIUS", "local_4_radius"))
 
     # Language settings
     display_languages_str: str = Field(
@@ -104,6 +125,29 @@ class Settings(BaseSettings):
     def default_language(self) -> str:
         """First language in list is the default display language."""
         return self.display_languages[0] if self.display_languages else "zh"
+
+    @property
+    def local_areas(self) -> list[tuple[float, float, float]]:
+        """Build list of (lat, lon, radius) tuples from configured LOCAL_N_* fields.
+
+        Returns empty list if no LOCAL_* configured (no travel bonus will be applied).
+        """
+        areas: list[tuple[float, float, float]] = []
+
+        # Check each configured area
+        area_fields = [
+            (self.local_0_lat, self.local_0_lon, self.local_0_radius),
+            (self.local_1_lat, self.local_1_lon, self.local_1_radius),
+            (self.local_2_lat, self.local_2_lon, self.local_2_radius),
+            (self.local_3_lat, self.local_3_lon, self.local_3_radius),
+            (self.local_4_lat, self.local_4_lon, self.local_4_radius),
+        ]
+
+        for lat, lon, radius in area_fields:
+            if lat is not None and lon is not None and radius is not None:
+                areas.append((lat, lon, radius))
+
+        return areas
 
 
 # Global settings instance
