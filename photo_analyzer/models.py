@@ -53,6 +53,7 @@ class PhotoRecord:
     beauty_score: float | None = None
     reason: str | None = None
     caption_json: dict[str, str] = field(default_factory=dict)  # {"zh": "...", "en": "..."}
+    enhanced_caption_json: dict[str, str] = field(default_factory=dict)  # {"zh": "...", "en": "..."}
     width: int | None = None
     height: int | None = None
     exif_datetime: str | None = None  # YYYY-MM-DD format

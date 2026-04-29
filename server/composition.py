@@ -254,9 +254,13 @@ def draw_text_area(
 
     text_width = CANVAS_WIDTH - 2 * TEXT_PADDING_X
 
-    # Get caption for display language (fallback to first available)
+    # Get caption: prefer enhanced, fallback to original
     caption = ""
-    if candidate.caption_json:
+    # Try enhanced caption first
+    if candidate.enhanced_caption_json:
+        caption = candidate.enhanced_caption_json.get(lang, "")
+    # Fallback to original caption
+    if not caption and candidate.caption_json:
         caption = candidate.caption_json.get(lang, "")
         if not caption:
             # Fallback to first available language

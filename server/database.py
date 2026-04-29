@@ -25,6 +25,7 @@ class PhotoCandidate:
     exif_datetime: str  # YYYY-MM-DD format
     location_json: dict[str, str] = field(default_factory=dict)  # {"zh": "深圳", "en": "Shenzhen"}
     caption_json: dict[str, str] = field(default_factory=dict)  # {"zh": "...", "en": "..."}
+    enhanced_caption_json: dict[str, str] = field(default_factory=dict)  # {"zh": "...", "en": "..."}
 
     @property
     def date(self) -> date | None:
@@ -74,6 +75,13 @@ def _row_to_candidate(row: sqlite3.Row) -> PhotoCandidate:
         except (json.JSONDecodeError, TypeError):
             pass
 
+    enhanced_caption_json = {}
+    if "enhanced_caption_json" in row.keys() and row["enhanced_caption_json"]:
+        try:
+            enhanced_caption_json = json.loads(row["enhanced_caption_json"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     location_json = {}
     if row["location_json"]:
         try:
@@ -88,6 +96,7 @@ def _row_to_candidate(row: sqlite3.Row) -> PhotoCandidate:
         exif_datetime=row["exif_datetime"] or "",
         location_json=location_json,
         caption_json=caption_json,
+        enhanced_caption_json=enhanced_caption_json,
     )
 
 
@@ -108,7 +117,7 @@ def get_photos_for_month_day(
     with get_db() as conn:
         rows = conn.execute(
             """
-            SELECT path, memory_score, beauty_score, exif_datetime, location_json, caption_json
+            SELECT path, memory_score, beauty_score, exif_datetime, location_json, caption_json, enhanced_caption_json
             FROM photo_records
             WHERE exif_datetime LIKE ?
               AND memory_score >= ?
@@ -126,7 +135,7 @@ def get_photo_by_path(path: str) -> PhotoCandidate | None:
     with get_db() as conn:
         row = conn.execute(
             """
-            SELECT path, memory_score, beauty_score, exif_datetime, location_json, caption_json
+            SELECT path, memory_score, beauty_score, exif_datetime, location_json, caption_json, enhanced_caption_json
             FROM photo_records
             WHERE path = ?
             """,
@@ -158,3 +167,45 @@ def get_available_month_days() -> list[str]:
         ).fetchall()
 
     return [row["md"] for row in rows if row["md"]]
+
+
+def update_enhanced_caption(
+    conn: sqlite3.Connection,
+    path: str,
+    lang: str,
+    caption: str,
+) -> None:
+    """Update enhanced_caption_json for a specific photo and language.
+
+    Args:
+        conn: Database connection
+        path: Photo path (primary key)
+        lang: Language code (e.g., 'zh', 'en')
+        caption: Enhanced caption text
+    """
+    # Get existing enhanced_caption_json
+    row = conn.execute(
+        "SELECT enhanced_caption_json FROM photo_records WHERE path = ?",
+        (path,),
+    ).fetchone()
+
+    if not row:
+        return
+
+    # Parse existing or start fresh
+    existing = {}
+    if row[0]:
+        try:
+            existing = json.loads(row[0])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Update the language
+    existing[lang] = caption
+
+    # Save back
+    conn.execute(
+        "UPDATE photo_records SET enhanced_caption_json = ? WHERE path = ?",
+        (json.dumps(existing, ensure_ascii=False), path),
+    )
+    conn.commit()

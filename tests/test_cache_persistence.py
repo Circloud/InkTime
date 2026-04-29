@@ -66,6 +66,7 @@ class TestCacheMetadata:
         metadata = CacheMetadata(
             date="2026-04-27",
             rendered_lang="zh",
+            enhanced_caption_enabled=False,
             photos=[
                 {
                     "index": 0,
@@ -91,6 +92,7 @@ class TestCacheMetadata:
 
         assert data["date"] == "2026-04-27"
         assert data["rendered_lang"] == "zh"
+        assert data["enhanced_caption_enabled"] == False
         assert len(data["photos"]) == 1
         assert data["photos"][0]["path"] == sample_cached_photo.candidate.path
 
@@ -102,6 +104,7 @@ class TestCacheMetadata:
         metadata = CacheMetadata(
             date="2026-04-27",
             rendered_lang="zh",
+            enhanced_caption_enabled=True,
             photos=[
                 {
                     "index": 0,
@@ -124,6 +127,7 @@ class TestCacheMetadata:
         assert loaded is not None
         assert loaded.date == "2026-04-27"
         assert loaded.rendered_lang == "zh"
+        assert loaded.enhanced_caption_enabled == True
         assert len(loaded.photos) == 1
         assert loaded.photos[0]["path"] == sample_cached_photo.candidate.path
 
@@ -154,14 +158,17 @@ class TestDiskPersistence:
     ):
         """Load should reconstruct CachedPhoto objects from disk."""
         from server.cache import save_cache_to_disk, load_cache_from_disk
+        from server.config import settings
 
         photos = [sample_cached_photo]
         save_cache_to_disk(temp_cache_dir, date(2026, 4, 27), "zh", photos)
 
-        loaded_date, loaded_lang, loaded_photos = load_cache_from_disk(temp_cache_dir)
+        loaded_date, loaded_lang, loaded_enhanced, loaded_photos = load_cache_from_disk(temp_cache_dir)
 
         assert loaded_date == date(2026, 4, 27)
         assert loaded_lang == "zh"
+        # Should match the settings value at save time
+        assert loaded_enhanced == settings.enhanced_caption_enabled
         assert len(loaded_photos) == 1
         assert loaded_photos[0].candidate.path == sample_cached_photo.candidate.path
         assert loaded_photos[0].binary == sample_cached_photo.binary

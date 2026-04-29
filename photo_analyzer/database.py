@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS photo_records (
     beauty_score      REAL,
     reason            TEXT,
     caption_json      TEXT,  -- JSON: {"zh": "...", "en": "..."}
+    enhanced_caption_json TEXT,  -- JSON: {"zh": "...", "en": "..."}
 
     -- Image dimensions (from PIL Image.size, NOT from EXIF)
     width             INTEGER,
@@ -52,8 +53,8 @@ def save_photo(conn: sqlite3.Connection, record: PhotoRecord) -> None:
         """
         INSERT OR REPLACE INTO photo_records
         (path, description, photo_type, memory_score, beauty_score, reason, caption_json,
-         width, height, exif_datetime, exif_model, exif_gps_lat, exif_gps_lon, location_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         enhanced_caption_json, width, height, exif_datetime, exif_model, exif_gps_lat, exif_gps_lon, location_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             record.path,
@@ -63,6 +64,7 @@ def save_photo(conn: sqlite3.Connection, record: PhotoRecord) -> None:
             record.beauty_score,
             record.reason,
             json.dumps(record.caption_json, ensure_ascii=False) if record.caption_json else None,
+            json.dumps(record.enhanced_caption_json, ensure_ascii=False) if record.enhanced_caption_json else None,
             record.width,
             record.height,
             record.exif_datetime,

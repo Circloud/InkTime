@@ -10,15 +10,68 @@ on the same day. On a new day, cache is cleared and regenerated.
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any
 
-from .database import PhotoCandidate
+from .database import PhotoCandidate, get_db, update_enhanced_caption
 from .composition import render, render_preview
+from .enhanced_caption import generate_enhanced_caption
 from .selector import select_photos_for_date
 from .config import settings
+
+
+def _generate_missing_enhanced_captions(
+    candidates: list[PhotoCandidate],
+    lang: str,
+) -> None:
+    """Generate enhanced captions in parallel for photos missing them.
+
+    Only generates if:
+    - Feature is enabled
+    - Photo doesn't have enhanced caption for the language
+
+    Failed generations are silently skipped (will use original caption).
+    """
+    if not settings.enhanced_caption_enabled:
+        return
+
+    # Find candidates missing enhanced caption for this language
+    missing = [
+        c for c in candidates
+        if not c.enhanced_caption_json.get(lang)
+    ]
+
+    if not missing:
+        return
+
+    print(f"[InkTime] Generating enhanced captions for {len(missing)} photos...")
+
+    def _generate_and_save(candidate: PhotoCandidate) -> None:
+        """Generate and save enhanced caption for a single photo."""
+        try:
+            caption = generate_enhanced_caption(Path(candidate.path), lang)
+            if caption:
+                with get_db() as conn:
+                    update_enhanced_caption(conn, candidate.path, lang, caption)
+                # Update in-memory object
+                candidate.enhanced_caption_json[lang] = caption
+                print(f"[InkTime] Enhanced caption saved for {candidate.path}")
+        except Exception as e:
+            print(f"Warning: Failed to generate enhanced caption for {candidate.path}: {e}")
+
+    # Execute in parallel
+    with ThreadPoolExecutor(max_workers=min(3, len(missing))) as executor:
+        futures = {executor.submit(_generate_and_save, c): c for c in missing}
+
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                candidate = futures[future]
+                print(f"Warning: Enhanced caption task failed for {candidate.path}: {e}")
 
 
 @dataclass
@@ -35,6 +88,7 @@ class CacheMetadata:
 
     date: str  # ISO format: "2026-04-27"
     rendered_lang: str  # Language used for rendering, e.g., "zh"
+    enhanced_caption_enabled: bool  # Whether enhanced captions were enabled
     photos: list[dict[str, Any]]  # PhotoCandidate fields + file references
 
     def save(self, cache_dir: Path) -> None:
@@ -45,6 +99,7 @@ class CacheMetadata:
             json.dump({
                 "date": self.date,
                 "rendered_lang": self.rendered_lang,
+                "enhanced_caption_enabled": self.enhanced_caption_enabled,
                 "photos": self.photos
             }, f, ensure_ascii=False, indent=2)
 
@@ -61,6 +116,7 @@ class CacheMetadata:
         return cls(
             date=data["date"],
             rendered_lang=data.get("rendered_lang", "zh"),  # Default for old cache
+            enhanced_caption_enabled=data.get("enhanced_caption_enabled", False),  # Default for old cache
             photos=data["photos"]
         )
 
@@ -100,7 +156,7 @@ def save_cache_to_disk(
         )
         (cache_dir / preview_file).write_bytes(preview_data)
 
-        # Build metadata entry (store full JSON)
+        # Build metadata entry (store full JSON including enhanced_caption_json)
         photo_entries.append({
             "index": i,
             "path": photo.candidate.path,
@@ -109,6 +165,7 @@ def save_cache_to_disk(
             "exif_datetime": photo.candidate.exif_datetime,
             "location_json": photo.candidate.location_json,
             "caption_json": photo.candidate.caption_json,
+            "enhanced_caption_json": photo.candidate.enhanced_caption_json,
             "binary_file": binary_file,
             "preview_file": preview_file,
         })
@@ -117,30 +174,31 @@ def save_cache_to_disk(
     metadata = CacheMetadata(
         date=target_date.isoformat(),
         rendered_lang=rendered_lang,
+        enhanced_caption_enabled=settings.enhanced_caption_enabled,
         photos=photo_entries
     )
     metadata.save(cache_dir)
 
 
-def load_cache_from_disk(cache_dir: Path) -> tuple[date | None, str, list[CachedPhoto]]:
+def load_cache_from_disk(cache_dir: Path) -> tuple[date | None, str, bool, list[CachedPhoto]]:
     """Load cache from disk if it exists and matches today.
 
     Args:
         cache_dir: Directory containing cache files
 
     Returns:
-        Tuple of (date, rendered_lang, list of CachedPhoto).
-        Returns (None, "", []) if no valid cache.
+        Tuple of (date, rendered_lang, enhanced_caption_enabled, list of CachedPhoto).
+        Returns (None, "", False, []) if no valid cache.
     """
     metadata = CacheMetadata.load(cache_dir)
     if not metadata:
-        return None, "", []
+        return None, "", False, []
 
     # Parse date
     try:
         cache_date = date.fromisoformat(metadata.date)
     except ValueError:
-        return None, "", []
+        return None, "", False, []
 
     # Reconstruct CachedPhoto objects
     photos: list[CachedPhoto] = []
@@ -153,6 +211,7 @@ def load_cache_from_disk(cache_dir: Path) -> tuple[date | None, str, list[Cached
             exif_datetime=entry["exif_datetime"],
             location_json=entry.get("location_json", {}),
             caption_json=entry.get("caption_json", {}),
+            enhanced_caption_json=entry.get("enhanced_caption_json", {}),
         )
 
         # Load binary
@@ -163,7 +222,7 @@ def load_cache_from_disk(cache_dir: Path) -> tuple[date | None, str, list[Cached
 
         photos.append(CachedPhoto(candidate=candidate, binary=binary))
 
-    return cache_date, metadata.rendered_lang, photos
+    return cache_date, metadata.rendered_lang, metadata.enhanced_caption_enabled, photos
 
 
 def clear_cache_dir(cache_dir: Path) -> None:
@@ -194,19 +253,22 @@ class DailyPhotoCache:
 
     def _load_from_disk(self) -> None:
         """Load cache from disk if it exists and is valid."""
-        cache_date, rendered_lang, photos = load_cache_from_disk(self._cache_dir)
+        cache_date, rendered_lang, enhanced_enabled, photos = load_cache_from_disk(self._cache_dir)
 
         if not cache_date or not photos:
             return
 
         today = date.today()
 
-        # Check if cache is from today and same language
+        # Check if cache is from today, same language, and same enhanced caption setting
         if cache_date != today:
             print(f"[InkTime] Clearing old cache from {cache_date}")
             clear_cache_dir(self._cache_dir)
         elif rendered_lang != settings.default_language:
             print(f"[InkTime] Language changed from {rendered_lang} to {settings.default_language}")
+            clear_cache_dir(self._cache_dir)
+        elif enhanced_enabled != settings.enhanced_caption_enabled:
+            print(f"[InkTime] Enhanced caption setting changed from {enhanced_enabled} to {settings.enhanced_caption_enabled}")
             clear_cache_dir(self._cache_dir)
         else:
             # Cache is valid
@@ -257,6 +319,9 @@ class DailyPhotoCache:
 
         # Select photos
         candidates = select_photos_for_date(target_date)
+
+        # Generate enhanced captions in parallel (if enabled)
+        _generate_missing_enhanced_captions(candidates, current_lang)
 
         # Render all photos with layout (photo + text overlay)
         photos: list[CachedPhoto] = []

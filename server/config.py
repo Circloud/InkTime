@@ -51,6 +51,13 @@ class ServerSettings(BaseSettings):
     # Cache directory for persisted daily photos
     cache_dir: Path = Field(default=Path("./server/cache"))
 
+    # Enhanced caption settings (online API for better quality)
+    enhanced_caption_enabled: bool = False
+    enhanced_base_url: str | None = None
+    enhanced_api_key: str | None = None
+    enhanced_model_name: str = "gpt-4o-mini"
+    enhanced_timeout: int = 60
+
     @property
     def display_languages(self) -> list[str]:
         """Parse comma-separated languages string into list."""
