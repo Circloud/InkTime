@@ -115,16 +115,24 @@ def main() -> None:
     """Main entry point for photo analysis."""
     setup_logging()
 
+    # Dispatch based on selection mode
+    if settings.selection_mode == "curated":
+        image_dirs = settings.resolved_curated_dirs
+        db_path = settings.curated_db_path
+    else:  # date mode
+        image_dirs = settings.resolved_image_dirs
+        db_path = settings.db_path
+
     # Scan for images across all configured directories
-    logger.info("Scanning image directories...")
-    images = list_images(settings.image_dirs)
+    logger.info(f"Scanning image directories (mode={settings.selection_mode})...")
+    images = list_images(image_dirs)
 
     if not images:
-        dirs_str = ", ".join(str(d) for d in settings.image_dirs)
+        dirs_str = ", ".join(str(d) for d in image_dirs)
         raise SystemExit(f"No image files found in: {dirs_str}")
 
     # Initialize database
-    conn = init_database(settings.db_path)
+    conn = init_database(db_path)
     city_resolver = create_city_resolver(
         settings.world_cities_csv,
         grid_deg=settings.city_grid_deg,

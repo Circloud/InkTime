@@ -27,8 +27,10 @@ class TestConfigParsing:
         assert settings.image_dirs[2] == Path("/absolute/path")
 
     def test_empty_string_uses_default(self):
-        """Empty string should fall back to default."""
-        settings = Settings(image_dirs_str="")
+        """Empty string should fall back to default (only in curated mode)."""
+        # In date mode, empty IMAGE_DIRS raises error
+        # In curated mode, empty IMAGE_DIRS falls back to default
+        settings = Settings(selection_mode="curated", curated_dirs_str="./curated", image_dirs_str="")
         assert len(settings.image_dirs) == 1
         assert settings.image_dirs[0] == Path("./photo_analyzer/test")
 

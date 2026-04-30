@@ -12,8 +12,9 @@ Server-specific settings:
 """
 
 from pathlib import Path
+from typing import Literal
 
-from pydantic import Field, AliasChoices
+from pydantic import Field, AliasChoices, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,6 +29,16 @@ class ServerSettings(BaseSettings):
 
     # Paths (shared with photo_analyzer - both packages access same DB)
     db_path: Path = Field(default=Path("./photo_analyzer/photos.db"))
+
+    # Selection mode
+    selection_mode: Literal["date", "curated"] | None = None
+
+    # Curated mode settings
+    curated_dirs_str: str = Field(
+        default="",
+        validation_alias=AliasChoices("CURATED_DIRS", "curated_dirs_str"),
+    )
+    curated_db_path: Path = Field(default=Path("./photo_analyzer/curated.db"))
 
     # Photo selection criteria (server-only - selects N photos per day for display)
     memory_threshold: float = Field(default=70.0, ge=0, le=100)
@@ -72,6 +83,14 @@ class ServerSettings(BaseSettings):
         """First language in list is the default display language."""
         return self.display_languages[0] if self.display_languages else "zh"
 
+    @property
+    def curated_dirs(self) -> list[Path]:
+        """Parse comma-separated curated directories string into list of Paths."""
+        if not self.curated_dirs_str:
+            return []
+        paths = [p.strip() for p in self.curated_dirs_str.split(",") if p.strip()]
+        return [Path(p) for p in paths]
+
     def get_font_path(self, lang: str) -> Path:
         """Get font path for a specific language.
 
@@ -89,12 +108,23 @@ class ServerSettings(BaseSettings):
 
         return font_path
 
+    @model_validator(mode="after")
+    def validate_selection_mode(self) -> "ServerSettings":
+        """Validate selection_mode is set."""
+        if self.selection_mode is None:
+            raise ValueError(
+                "SELECTION_MODE is required. Set to 'date' or 'curated' in .env"
+            )
+        return self
+
     def resolve_paths(self) -> None:
         """Resolve relative paths to absolute paths based on project root."""
         root = Path(__file__).parent.parent
 
         if not self.db_path.is_absolute():
             self.db_path = (root / self.db_path).resolve()
+        if not self.curated_db_path.is_absolute():
+            self.curated_db_path = (root / self.curated_db_path).resolve()
         if self.font_path_zh and not self.font_path_zh.is_absolute():
             self.font_path_zh = (root / self.font_path_zh).resolve()
         if self.font_path_en and not self.font_path_en.is_absolute():

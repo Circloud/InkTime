@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -19,7 +19,7 @@ from typing import Any
 from .database import PhotoCandidate, get_db, update_enhanced_caption
 from .composition import render, render_preview
 from .enhanced_caption import generate_enhanced_caption
-from .selector import select_photos_for_date
+from .selector import select_photos_for_today
 from .config import settings
 
 
@@ -89,7 +89,8 @@ class CacheMetadata:
     date: str  # ISO format: "2026-04-27"
     rendered_lang: str  # Language used for rendering, e.g., "zh"
     enhanced_caption_enabled: bool  # Whether enhanced captions were enabled
-    photos: list[dict[str, Any]]  # PhotoCandidate fields + file references
+    selection_mode: str = "date"  # Selection mode used for this cache
+    photos: list[dict[str, Any]] = field(default_factory=list)
 
     def save(self, cache_dir: Path) -> None:
         """Save metadata to cache_dir/metadata.json."""
@@ -100,6 +101,7 @@ class CacheMetadata:
                 "date": self.date,
                 "rendered_lang": self.rendered_lang,
                 "enhanced_caption_enabled": self.enhanced_caption_enabled,
+                "selection_mode": self.selection_mode,
                 "photos": self.photos
             }, f, ensure_ascii=False, indent=2)
 
@@ -117,6 +119,7 @@ class CacheMetadata:
             date=data["date"],
             rendered_lang=data.get("rendered_lang", "zh"),  # Default for old cache
             enhanced_caption_enabled=data.get("enhanced_caption_enabled", False),  # Default for old cache
+            selection_mode=data.get("selection_mode", "date"),  # Default for old cache
             photos=data["photos"]
         )
 
@@ -175,6 +178,7 @@ def save_cache_to_disk(
         date=target_date.isoformat(),
         rendered_lang=rendered_lang,
         enhanced_caption_enabled=settings.enhanced_caption_enabled,
+        selection_mode=settings.selection_mode,
         photos=photo_entries
     )
     metadata.save(cache_dir)
@@ -258,17 +262,25 @@ class DailyPhotoCache:
         if not cache_date or not photos:
             return
 
+        # Load metadata for mode check
+        metadata = CacheMetadata.load(self._cache_dir)
+        cached_mode = metadata.selection_mode if metadata else "date"
+
         today = date.today()
 
-        # Check if cache is from today, same language, and same enhanced caption setting
-        if cache_date != today:
+        # Check if cache matches current settings
+        # Note: Date check only applies to date mode (curated photos don't change daily)
+        if cache_date != today and settings.selection_mode == "date":
             print(f"[InkTime] Clearing old cache from {cache_date}")
             clear_cache_dir(self._cache_dir)
         elif rendered_lang != settings.default_language:
             print(f"[InkTime] Language changed from {rendered_lang} to {settings.default_language}")
             clear_cache_dir(self._cache_dir)
         elif enhanced_enabled != settings.enhanced_caption_enabled:
-            print(f"[InkTime] Enhanced caption setting changed from {enhanced_enabled} to {settings.enhanced_caption_enabled}")
+            print(f"[InkTime] Enhanced caption setting changed")
+            clear_cache_dir(self._cache_dir)
+        elif cached_mode != settings.selection_mode:
+            print(f"[InkTime] Selection mode changed from {cached_mode} to {settings.selection_mode}")
             clear_cache_dir(self._cache_dir)
         else:
             # Cache is valid
@@ -292,8 +304,14 @@ class DailyPhotoCache:
         """
         today = date.today()
 
-        # Refresh if new day, language change, or empty
-        if self._date != today or self._rendered_lang != settings.default_language or not self._photos:
+        # Refresh if: new day (date mode only), language change, or empty
+        # Curated mode doesn't need date-based refresh (photos are fixed)
+        needs_refresh = (
+            (self._date != today and settings.selection_mode == "date")
+            or self._rendered_lang != settings.default_language
+            or not self._photos
+        )
+        if needs_refresh:
             self._refresh(today)
 
         if index < 0 or index >= len(self._photos):
@@ -302,14 +320,19 @@ class DailyPhotoCache:
         return self._photos[index]
 
     def get_all(self) -> list[CachedPhoto]:
-        """Get all cached photos. Triggers refresh if new day or language change."""
+        """Get all cached photos. Triggers refresh if needed."""
         today = date.today()
-        if self._date != today or self._rendered_lang != settings.default_language or not self._photos:
+        needs_refresh = (
+            (self._date != today and settings.selection_mode == "date")
+            or self._rendered_lang != settings.default_language
+            or not self._photos
+        )
+        if needs_refresh:
             self._refresh(today)
         return self._photos
 
     def _refresh(self, target_date: date) -> None:
-        """Refresh cache with new photo selection for target date."""
+        """Refresh cache with new photo selection."""
         # Clear old cache
         if self._cache_dir.exists():
             clear_cache_dir(self._cache_dir)
@@ -317,8 +340,8 @@ class DailyPhotoCache:
         # Get current language
         current_lang = settings.default_language
 
-        # Select photos
-        candidates = select_photos_for_date(target_date)
+        # Select photos (dispatches by mode: date or curated)
+        candidates = select_photos_for_today()
 
         # Generate enhanced captions in parallel (if enabled)
         _generate_missing_enhanced_captions(candidates, current_lang)

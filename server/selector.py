@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from .config import settings
-from .database import PhotoCandidate, get_photos_for_month_day
+from .database import PhotoCandidate, get_all_photos_ordered, get_photos_for_month_day
 
 
 def generate_date_sequence(target: date, max_offset: int = 365) -> list[date]:
@@ -84,6 +84,35 @@ def select_photos_for_date(
     return selected[:quantity]
 
 
+def select_curated_photos() -> list[PhotoCandidate]:
+    """Select all curated photos in alphabetical order by filename.
+
+    No filtering, no date matching, no score threshold.
+
+    Returns:
+        List of all PhotoCandidates sorted by filename
+
+    Raises:
+        ValueError: If no photos found in curated database
+    """
+    candidates = get_all_photos_ordered()
+
+    if not candidates:
+        raise ValueError(
+            "No photos found in curated database. "
+            "Run 'uv run photo_analyzer' with SELECTION_MODE=curated first."
+        )
+
+    return candidates
+
+
 def select_photos_for_today() -> list[PhotoCandidate]:
-    """Select photos for today's date."""
-    return select_photos_for_date(date.today())
+    """Select photos for today based on current selection mode.
+
+    - date mode: on-this-day with fallback
+    - curated mode: sequential, no filtering
+    """
+    if settings.selection_mode == "curated":
+        return select_curated_photos()
+    else:
+        return select_photos_for_date(date.today())

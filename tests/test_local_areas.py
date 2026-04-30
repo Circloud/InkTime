@@ -31,10 +31,25 @@ class TestLocalAreasParsing:
 
     def test_single_local_area(self):
         """Parse single LOCAL_0_* configuration."""
+        # Set all LOCAL_* fields explicitly to override .env values
         settings = Settings(
+            selection_mode="date",
+            image_dirs_str="./photos",
             local_0_lat=22.543096,
             local_0_lon=114.057865,
             local_0_radius=60.0,
+            local_1_lat=None,
+            local_1_lon=None,
+            local_1_radius=None,
+            local_2_lat=None,
+            local_2_lon=None,
+            local_2_radius=None,
+            local_3_lat=None,
+            local_3_lon=None,
+            local_3_radius=None,
+            local_4_lat=None,
+            local_4_lon=None,
+            local_4_radius=None,
         )
 
         areas = settings.local_areas
@@ -61,13 +76,25 @@ class TestLocalAreasParsing:
 
     def test_non_contiguous_indices_work(self):
         """LOCAL_0 and LOCAL_2 both valid even without LOCAL_1."""
+        # Set all LOCAL_* fields explicitly to override .env values
         settings = Settings(
+            selection_mode="date",
+            image_dirs_str="./photos",
             local_0_lat=22.54,
             local_0_lon=114.06,
             local_0_radius=60.0,
+            local_1_lat=None,
+            local_1_lon=None,
+            local_1_radius=None,
             local_2_lat=39.90,
             local_2_lon=116.40,
             local_2_radius=30.0,
+            local_3_lat=None,
+            local_3_lon=None,
+            local_3_radius=None,
+            local_4_lat=None,
+            local_4_lon=None,
+            local_4_radius=None,
         )
 
         areas = settings.local_areas

@@ -10,6 +10,7 @@ import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date
+from pathlib import Path
 from typing import Iterator
 
 from .config import settings
@@ -53,11 +54,14 @@ class PhotoCandidate:
 def get_db() -> Iterator[sqlite3.Connection]:
     """Get database connection with automatic cleanup.
 
+    Uses curated_db_path for curated mode, db_path for date mode.
+
     Usage:
         with get_db() as conn:
             rows = conn.execute("SELECT ...").fetchall()
     """
-    conn = sqlite3.connect(settings.db_path)
+    db_path = settings.curated_db_path if settings.selection_mode == "curated" else settings.db_path
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
         yield conn
@@ -128,6 +132,33 @@ def get_photos_for_month_day(
         ).fetchall()
 
     return [_row_to_candidate(row) for row in rows]
+
+
+def get_all_photos_ordered() -> list[PhotoCandidate]:
+    """Get all photos sorted alphabetically by filename (curated mode).
+
+    No filtering by score, date, or location.
+    Photos are sorted by the filename portion of their path.
+
+    Returns:
+        List of all PhotoCandidates sorted by filename
+    """
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT path, memory_score, beauty_score, exif_datetime, location_json, caption_json, enhanced_caption_json
+            FROM photo_records
+            ORDER BY lower(path)
+            """
+        ).fetchall()
+
+    candidates = [_row_to_candidate(row) for row in rows]
+
+    # Sort by filename (last component of path)
+    def get_filename(candidate: PhotoCandidate) -> str:
+        return Path(candidate.path).name.lower()
+
+    return sorted(candidates, key=get_filename)
 
 
 def get_photo_by_path(path: str) -> PhotoCandidate | None:

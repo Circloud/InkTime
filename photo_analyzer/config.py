@@ -7,7 +7,9 @@ Environment variables take precedence over .env file.
 import logging
 from pathlib import Path
 
-from pydantic import Field, field_validator, AliasChoices
+from typing import Literal
+
+from pydantic import Field, field_validator, model_validator, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -29,6 +31,17 @@ class Settings(BaseSettings):
         default="./photo_analyzer/test",
         validation_alias=AliasChoices("IMAGE_DIRS", "image_dirs_str"),
     )
+
+    # Selection mode
+    selection_mode: Literal["date", "curated"] | None = None
+
+    # Curated mode settings
+    curated_dirs_str: str = Field(
+        default="",
+        validation_alias=AliasChoices("CURATED_DIRS", "curated_dirs_str"),
+    )
+    curated_db_path: Path = Field(default=Path("./photo_analyzer/curated.db"))
+
     db_path: Path = Field(default=Path("./photo_analyzer/photos.db"))
     world_cities_csv: Path = Field(default=Path("./photo_analyzer/world_cities_zh.csv"))
 
@@ -82,6 +95,26 @@ class Settings(BaseSettings):
             return None
         return v
 
+    @model_validator(mode="after")
+    def validate_selection_mode(self) -> "Settings":
+        """Validate selection_mode and required settings."""
+        if self.selection_mode is None:
+            raise ValueError(
+                "SELECTION_MODE is required. Set to 'date' or 'curated' in .env"
+            )
+
+        if self.selection_mode == "date" and not self.image_dirs_str:
+            raise ValueError(
+                "IMAGE_DIRS is required when SELECTION_MODE=date"
+            )
+
+        if self.selection_mode == "curated" and not self.curated_dirs_str:
+            raise ValueError(
+                "CURATED_DIRS is required when SELECTION_MODE=curated"
+            )
+
+        return self
+
     @property
     def image_dirs(self) -> list[Path]:
         """Parse comma-separated directories string into list of Paths."""
@@ -89,6 +122,14 @@ class Settings(BaseSettings):
             return [Path("./photo_analyzer/test")]
         paths = [p.strip() for p in self.image_dirs_str.split(",") if p.strip()]
         return [Path(p) for p in paths] if paths else [Path("./photo_analyzer/test")]
+
+    @property
+    def curated_dirs(self) -> list[Path]:
+        """Parse comma-separated curated directories string into list of Paths."""
+        if not self.curated_dirs_str:
+            return []
+        paths = [p.strip() for p in self.curated_dirs_str.split(",") if p.strip()]
+        return [Path(p) for p in paths]
 
     def resolve_paths(self) -> None:
         """Resolve relative paths to absolute paths based on project root."""
@@ -103,8 +144,19 @@ class Settings(BaseSettings):
                 resolved_dirs.append(p)
         self._resolved_image_dirs = resolved_dirs
 
+        # Resolve curated dirs
+        resolved_curated = []
+        for p in self.curated_dirs:
+            if not p.is_absolute():
+                resolved_curated.append((root / p).resolve())
+            else:
+                resolved_curated.append(p)
+        self._resolved_curated_dirs = resolved_curated
+
         if not self.db_path.is_absolute():
             self.db_path = (root / self.db_path).resolve()
+        if not self.curated_db_path.is_absolute():
+            self.curated_db_path = (root / self.curated_db_path).resolve()
         if not self.world_cities_csv.is_absolute():
             self.world_cities_csv = (root / self.world_cities_csv).resolve()
 
@@ -112,6 +164,11 @@ class Settings(BaseSettings):
     def resolved_image_dirs(self) -> list[Path]:
         """Get resolved (absolute) image directories."""
         return getattr(self, "_resolved_image_dirs", self.image_dirs)
+
+    @property
+    def resolved_curated_dirs(self) -> list[Path]:
+        """Get resolved (absolute) curated directories."""
+        return getattr(self, "_resolved_curated_dirs", self.curated_dirs)
 
     @property
     def display_languages(self) -> list[str]:
