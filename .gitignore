@@ -28,6 +28,7 @@ test/
 # Claude Code docs
 CLAUDE.md
 docs/
+.claude/
 
 # PlatformIO build artifacts
 firmware/.pio/
