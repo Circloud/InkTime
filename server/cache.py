@@ -90,6 +90,7 @@ class CacheMetadata:
     rendered_lang: str  # Language used for rendering, e.g., "zh"
     enhanced_caption_enabled: bool  # Whether enhanced captions were enabled
     selection_mode: str = "date"  # Selection mode used for this cache
+    current_index: int = 0  # Current photo index for sequential display
     photos: list[dict[str, Any]] = field(default_factory=list)
 
     def save(self, cache_dir: Path) -> None:
@@ -102,6 +103,7 @@ class CacheMetadata:
                 "rendered_lang": self.rendered_lang,
                 "enhanced_caption_enabled": self.enhanced_caption_enabled,
                 "selection_mode": self.selection_mode,
+                "current_index": self.current_index,
                 "photos": self.photos
             }, f, ensure_ascii=False, indent=2)
 
@@ -120,6 +122,7 @@ class CacheMetadata:
             rendered_lang=data.get("rendered_lang", "zh"),  # Default for old cache
             enhanced_caption_enabled=data.get("enhanced_caption_enabled", False),  # Default for old cache
             selection_mode=data.get("selection_mode", "date"),  # Default for old cache
+            current_index=data.get("current_index", 0),  # Default for old cache
             photos=data["photos"]
         )
 
@@ -179,6 +182,7 @@ def save_cache_to_disk(
         rendered_lang=rendered_lang,
         enhanced_caption_enabled=settings.enhanced_caption_enabled,
         selection_mode=settings.selection_mode,
+        current_index=0,  # New cache starts at index 0
         photos=photo_entries
     )
     metadata.save(cache_dir)
@@ -251,6 +255,7 @@ class DailyPhotoCache:
         self._date: date | None = None
         self._rendered_lang: str = ""
         self._photos: list[CachedPhoto] = []
+        self._current_index: int = 0
 
         # Try to load from disk on init
         self._load_from_disk()
@@ -287,6 +292,7 @@ class DailyPhotoCache:
             self._date = cache_date
             self._rendered_lang = rendered_lang
             self._photos = photos
+            self._current_index = metadata.current_index if metadata else 0
             print(f"[InkTime] Loaded {len(photos)} cached photos from disk for {cache_date} ({rendered_lang})")
 
     def get(self, index: int) -> CachedPhoto:
@@ -331,6 +337,52 @@ class DailyPhotoCache:
             self._refresh(today)
         return self._photos
 
+    def get_next(self) -> CachedPhoto:
+        """Get next photo in sequence, increment index, persist to disk.
+
+        Returns:
+            CachedPhoto at current index (before increment)
+
+        Raises:
+            RuntimeError: If no photos available
+        """
+        today = date.today()
+
+        # Refresh if needed (same logic as get())
+        needs_refresh = (
+            (self._date != today and settings.selection_mode == "date")
+            or self._rendered_lang != settings.default_language
+            or not self._photos
+        )
+        if needs_refresh:
+            self._refresh(today)
+
+        if not self._photos:
+            raise RuntimeError("No photos available")
+
+        # Get photo at current index
+        photo = self._photos[self._current_index]
+
+        # Increment with wrap-around
+        self._current_index = (self._current_index + 1) % len(self._photos)
+
+        # Persist index to disk
+        self._save_index()
+
+        return photo
+
+    def _save_index(self) -> None:
+        """Save current index to metadata.json without re-saving photos."""
+        metadata = CacheMetadata.load(self._cache_dir)
+        if metadata:
+            metadata.current_index = self._current_index
+            metadata.save(self._cache_dir)
+
+    @property
+    def current_index(self) -> int:
+        """Get current photo index."""
+        return self._current_index
+
     def _refresh(self, target_date: date) -> None:
         """Refresh cache with new photo selection."""
         # Clear old cache
@@ -369,6 +421,7 @@ class DailyPhotoCache:
         self._date = target_date
         self._rendered_lang = current_lang
         self._photos = photos
+        self._current_index = 0  # Reset index on refresh
 
         # Persist to disk
         try:

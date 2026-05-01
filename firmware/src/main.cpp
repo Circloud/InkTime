@@ -181,8 +181,6 @@ void setup() {
     // Step 9: Download photo
     // =========================================================================
     DBG_PRINTLN("[MAIN] Downloading photo...");
-    DBG_PRINT("[MAIN] Photo index: ");
-    DBG_PRINTLN(cfg.photo_index);
 
     uint8_t* image_buffer = nullptr;
     bool download_ok = download_photo(cfg, &image_buffer);
@@ -206,14 +204,7 @@ void setup() {
     DBG_PRINTLN("[MAIN] Display update complete");
 
     // =========================================================================
-    // Step 11: Update photo index
-    // =========================================================================
-    nvs_update_photo_index(cfg);
-    DBG_PRINT("[MAIN] Photo index updated to: ");
-    DBG_PRINTLN(cfg.photo_index);
-
-    // =========================================================================
-    // Step 12: Free buffer and cleanup
+    // Step 11: Free buffer and cleanup
     // =========================================================================
     free(image_buffer);
     image_buffer = nullptr;
@@ -224,7 +215,7 @@ void setup() {
     display_power_down_pins();
 
     // =========================================================================
-    // Step 13: Sleep until scheduled time
+    // Step 12: Sleep until scheduled time
     // =========================================================================
     DBG_PRINTLN("[MAIN] Entering deep sleep...");
     DBG_PRINTLN("========================================");

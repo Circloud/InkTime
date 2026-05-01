@@ -22,7 +22,6 @@ struct DeviceConfig {
     String server_host;     // Server address (host:port format)
     int8_t tz_offset;       // Timezone offset (-12 to +14)
     uint8_t refresh_hour;   // Daily refresh hour (0-23)
-    uint8_t photo_index;    // Current photo index (0 to PHOTO_COUNT_MAX-1)
     String last_date;       // Last processed date (YYYY-MM-DD)
     time_t last_epoch;      // Last successful sync epoch
     bool valid;             // True if wifi_ssid is non-empty
@@ -36,7 +35,6 @@ struct DeviceConfig {
         , server_host("")
         , tz_offset(DEFAULT_TZ_OFFSET)
         , refresh_hour(DEFAULT_REFRESH_HOUR)
-        , photo_index(0)
         , last_date("")
         , last_epoch(0)
         , valid(false)
@@ -69,7 +67,6 @@ inline DeviceConfig nvs_load_config() {
     cfg.refresh_hour = prefs.getUChar(NVS_KEY_HOUR, DEFAULT_REFRESH_HOUR);
 
     // Load photo tracking
-    cfg.photo_index = prefs.getUChar(NVS_KEY_PHOTO_IDX, 0);
     cfg.last_date = prefs.getString(NVS_KEY_LAST_DATE, "");
     cfg.last_epoch = prefs.getULong64(NVS_KEY_LAST_EPOCH, 0);
 
@@ -87,8 +84,6 @@ inline DeviceConfig nvs_load_config() {
     DBG_PRINTLN(cfg.tz_offset);
     DBG_PRINT("[NVS]   Refresh hour: ");
     DBG_PRINTLN(cfg.refresh_hour);
-    DBG_PRINT("[NVS]   Photo index: ");
-    DBG_PRINTLN(cfg.photo_index);
     DBG_PRINT("[NVS]   Last date: ");
     DBG_PRINTLN(cfg.last_date);
     DBG_PRINT("[NVS]   Valid: ");
@@ -118,7 +113,6 @@ inline void nvs_save_config(const DeviceConfig& cfg) {
     prefs.putUChar(NVS_KEY_HOUR, cfg.refresh_hour);
 
     // Save photo tracking
-    prefs.putUChar(NVS_KEY_PHOTO_IDX, cfg.photo_index);
     prefs.putString(NVS_KEY_LAST_DATE, cfg.last_date);
     prefs.putULong64(NVS_KEY_LAST_EPOCH, cfg.last_epoch);
 
@@ -128,25 +122,7 @@ inline void nvs_save_config(const DeviceConfig& cfg) {
 }
 
 /**
- * @brief Increment photo index with wrap-around
- * @param cfg Reference to DeviceConfig (will be modified and saved)
- *
- * Cycles: 0 -> 1 -> 2 -> 0
- */
-inline void nvs_update_photo_index(DeviceConfig& cfg) {
-    cfg.photo_index = (cfg.photo_index + 1) % PHOTO_COUNT_MAX;
-
-    Preferences prefs;
-    prefs.begin(NVS_NAMESPACE, false);
-    prefs.putUChar(NVS_KEY_PHOTO_IDX, cfg.photo_index);
-    prefs.end();
-
-    DBG_PRINT("[NVS] Photo index updated to: ");
-    DBG_PRINTLN(cfg.photo_index);
-}
-
-/**
- * @brief Check if date changed and reset photo index if new day
+ * @brief Check if date changed
  * @param cfg Reference to DeviceConfig (will be modified if new day)
  * @param today Current date string (YYYY-MM-DD format)
  * @return true if new day detected, false otherwise
@@ -156,22 +132,19 @@ inline bool nvs_check_new_day(DeviceConfig& cfg, const String& today) {
         DBG_PRINT("[NVS] New day detected: ");
         DBG_PRINTLN(today);
 
-        // Reset photo index to 0 for new day
-        cfg.photo_index = 0;
         cfg.last_date = today;
 
-        // Save updated values
+        // Save updated value
         Preferences prefs;
         prefs.begin(NVS_NAMESPACE, false);
-        prefs.putUChar(NVS_KEY_PHOTO_IDX, cfg.photo_index);
         prefs.putString(NVS_KEY_LAST_DATE, cfg.last_date);
         prefs.end();
 
-        DBG_PRINTLN("[NVS] Photo index reset to 0 for new day");
+        DBG_PRINTLN("[NVS] Date updated for new day");
         return true;
     }
 
-    DBG_PRINTLN("[NVS] Same day, photo index unchanged");
+    DBG_PRINTLN("[NVS] Same day, no changes");
     return false;
 }
 

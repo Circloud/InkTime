@@ -2,7 +2,8 @@
  * @file downloader.h
  * @brief HTTP downloader for photo data from InkTime server
  *
- * Downloads 192KB 4bpp packed binary from server endpoint GET /api/photo/<index>
+ * Downloads 192KB 4bpp packed binary from server endpoint GET /api/photo
+ * Server tracks photo index, no client-side state needed.
  * Allocates buffer in PSRAM for large image data.
  */
 
@@ -15,9 +16,9 @@
 #include "nvs_manager.h"
 
 /**
- * @brief Download photo binary from server
+ * @brief Download next photo binary from server
  *
- * @param cfg Device configuration containing server_host and photo_index
+ * @param cfg Device configuration containing server_host
  * @param buffer Output pointer to receive allocated buffer (allocated in PSRAM)
  * @return true on successful download with valid size, false on failure
  *
@@ -39,14 +40,14 @@ inline bool download_photo(const DeviceConfig& cfg, uint8_t** buffer) {
         return false;
     }
 
-    // Build URL
+    // Build URL (server tracks photo index)
     String url;
     if (cfg.server_host.startsWith("http://") || cfg.server_host.startsWith("https://")) {
         url = cfg.server_host;
     } else {
         url = "http://" + cfg.server_host;
     }
-    url += "/api/photo/" + String(cfg.photo_index);
+    url += "/api/photo";
 
     DBG_PRINT("[DL] Downloading from: ");
     DBG_PRINTLN(url);

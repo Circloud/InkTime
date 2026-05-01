@@ -75,7 +75,6 @@
 // =============================================================================
 #define SERVER_PORT_DEFAULT     8765
 #define DOWNLOAD_TIMEOUT_MS     60000       // 60 seconds
-#define PHOTO_COUNT_MAX         3           // Photos per day (index 0-2)
 
 // =============================================================================
 // Default Configuration Values
@@ -101,7 +100,6 @@
 #define NVS_KEY_TZ              "tz"
 #define NVS_KEY_HOUR            "hour"
 #define NVS_KEY_ROT180          "rot180"
-#define NVS_KEY_PHOTO_IDX       "photo_idx"
 #define NVS_KEY_LAST_DATE       "last_date"
 #define NVS_KEY_LAST_EPOCH      "last_epoch"
 
