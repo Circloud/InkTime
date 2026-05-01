@@ -350,6 +350,8 @@ def render(
     lang: str = "zh",
     font_path_zh: Union[str, Path, None] = None,
     font_path_en: Union[str, Path, None] = None,
+    dither_mode: str = "burkes",
+    tone: float = 0.0,
 ) -> bytes:
     """Render photo with text overlay to 192KB 4bpp binary.
 
@@ -359,6 +361,8 @@ def render(
         lang: Display language code
         font_path_zh: Path to Chinese font
         font_path_en: Path to English font
+        dither_mode: Dithering algorithm (floyd_steinberg, burkes, atkinson, etc.)
+        tone: Dynamic range compression (0.0-1.0 or "auto")
 
     Returns:
         192,000 bytes of 4bpp packed pixel data for ESP32 display
@@ -366,8 +370,8 @@ def render(
     # Compose canvas with photo and text
     canvas = compose_canvas(photo_path, candidate, lang, font_path_zh, font_path_en)
 
-    # Apply 6-color dithering
-    dithered = apply_dither(canvas)
+    # Apply 6-color dithering with specified mode
+    dithered = apply_dither(canvas, mode=dither_mode, tone=tone)
 
     # Pack to 4bpp binary
     return pack_to_4bpp(dithered)
@@ -379,6 +383,8 @@ def render_preview(
     lang: str = "zh",
     font_path_zh: Union[str, Path, None] = None,
     font_path_en: Union[str, Path, None] = None,
+    dither_mode: str = "burkes",
+    tone: float = 0.0,
 ) -> bytes:
     """Generate PNG preview of the composed layout.
 
@@ -388,6 +394,8 @@ def render_preview(
         lang: Display language code
         font_path_zh: Path to Chinese font
         font_path_en: Path to English font
+        dither_mode: Dithering algorithm
+        tone: Dynamic range compression (0.0-1.0 or "auto")
 
     Returns:
         PNG image data as bytes
@@ -397,8 +405,8 @@ def render_preview(
     # Compose canvas with photo and text
     canvas = compose_canvas(photo_path, candidate, lang, font_path_zh, font_path_en)
 
-    # Apply dithering
-    dithered = apply_dither(canvas)
+    # Apply dithering with specified mode
+    dithered = apply_dither(canvas, mode=dither_mode, tone=tone)
 
     # Return as PNG
     buffer = BytesIO()

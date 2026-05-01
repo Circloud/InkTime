@@ -70,6 +70,10 @@ class ServerSettings(BaseSettings):
     enhanced_timeout: int = 60
     enhanced_retry_times: int = 3
 
+    # Dithering settings
+    dither_mode: str = "burkes"
+    tone: float | str = 0.0
+
     @property
     def display_languages(self) -> list[str]:
         """Parse comma-separated languages string into list."""
