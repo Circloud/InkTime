@@ -34,7 +34,7 @@ def create_app() -> Flask:
             "name": "InkTime Server",
             "version": "2.0.0",
             "endpoints": {
-                "photo": "/api/photo/<index>",
+                "photo": "/api/photo",
                 "status": "/api/status",
                 "health": "/health",
             },

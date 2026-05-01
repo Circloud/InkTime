@@ -6,6 +6,7 @@ Usage:
 """
 
 from .app import create_app
+from .cache import cache
 from .config import settings
 
 
@@ -16,7 +17,13 @@ def main() -> None:
     print(f"[InkTime] Starting server...")
     print(f"[InkTime] Host: {settings.flask_host}")
     print(f"[InkTime] Port: {settings.flask_port}")
-    print(f"[InkTime] API: http://{settings.flask_host}:{settings.flask_port}/api/photo/0")
+
+    # Warm up cache at startup for proactive error detection
+    try:
+        cache.get_all()
+        print(f"[InkTime] Cache ready: {cache.count} photos")
+    except Exception as e:
+        print(f"[InkTime] Warning: Cache warmup failed: {e}")
 
     app.run(
         host=settings.flask_host,
