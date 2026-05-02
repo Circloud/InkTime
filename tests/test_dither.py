@@ -99,7 +99,7 @@ def test_full_pipeline_produces_192kb():
 
 def test_text_overlay_renders_correctly_in_final_canvas():
     """Text overlay with anti-aliased pixels should render correctly after packing."""
-    from server.text_overlay import render_text_overlay, TEXT_CANVAS_HEIGHT
+    from server.composition import _render_text_area, TEXT_CANVAS_HEIGHT
     from server.dither import CANVAS_WIDTH
     from server.database import PhotoCandidate
 
@@ -112,7 +112,7 @@ def test_text_overlay_renders_correctly_in_final_canvas():
     )
 
     # Render text overlay
-    text_canvas = render_text_overlay(candidate, lang="zh")
+    text_canvas = _render_text_area(candidate, lang="zh")
 
     # Create a full-size canvas and paste text overlay at bottom
     full_canvas = Image.new("RGB", (CANVAS_WIDTH, CANVAS_HEIGHT), (255, 255, 255))

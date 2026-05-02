@@ -1,10 +1,10 @@
-"""Tests for text_overlay module."""
+"""Tests for composition module."""
 
 import pytest
 from PIL import Image
 
-from server.text_overlay import (
-    render_text_overlay,
+from server.composition import (
+    _render_text_area,
     format_date_display,
     TEXT_CANVAS_HEIGHT,
 )
@@ -23,7 +23,7 @@ def test_render_text_overlay_returns_correct_size():
         location_json={"zh": "深圳", "en": "Shenzhen"},
     )
 
-    result = render_text_overlay(candidate, lang="zh")
+    result = _render_text_area(candidate, lang="zh")
 
     assert result.size == (CANVAS_WIDTH, TEXT_CANVAS_HEIGHT)
     assert result.mode == "RGB"
@@ -38,7 +38,7 @@ def test_render_text_overlay_uses_white_background():
         exif_datetime="2026-05-02",
     )
 
-    result = render_text_overlay(candidate, lang="zh")
+    result = _render_text_area(candidate, lang="zh")
 
     # Check corners are white (no text at edges)
     assert result.getpixel((0, 0)) == (255, 255, 255)
@@ -55,7 +55,7 @@ def test_render_text_overlay_dithering_produces_black_white():
         caption_json={"zh": "测试文案"},
     )
 
-    result = render_text_overlay(candidate, lang="zh")
+    result = _render_text_area(candidate, lang="zh")
 
     # Collect all unique colors
     colors = set()
@@ -77,7 +77,7 @@ def test_render_text_overlay_has_black_pixels():
         caption_json={"zh": "测试文案"},
     )
 
-    result = render_text_overlay(candidate, lang="zh")
+    result = _render_text_area(candidate, lang="zh")
 
     # Check that there are black pixels (text was rendered)
     has_black = False

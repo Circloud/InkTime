@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from photo_analyzer.models import PhotoRecord
-from server.text_overlay import format_date_display
+from server.composition import format_date_display
 from server.database import PhotoCandidate
 
 
