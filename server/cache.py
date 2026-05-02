@@ -159,7 +159,9 @@ def save_cache_to_disk(
             lang=rendered_lang,
             font_path_zh=settings.font_path_zh,
             font_path_en=settings.font_path_en,
-            tone=settings.tone,
+            photo_dither_mode=settings.photo_dither_mode,
+            photo_tone=settings.photo_tone,
+            text_dither_mode=settings.text_dither_mode,
         )
         (cache_dir / preview_file).write_bytes(preview_data)
 
@@ -409,8 +411,9 @@ class DailyPhotoCache:
                     lang=current_lang,
                     font_path_zh=settings.font_path_zh,
                     font_path_en=settings.font_path_en,
-                    dither_mode=settings.dither_mode,
-                    tone=settings.tone,
+                    photo_dither_mode=settings.photo_dither_mode,
+                    photo_tone=settings.photo_tone,
+                    text_dither_mode=settings.text_dither_mode,
                 )
                 photos.append(CachedPhoto(candidate=candidate, binary=binary))
             except Exception as e:

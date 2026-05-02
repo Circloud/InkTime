@@ -146,23 +146,30 @@ def load_font(size: int, font_path: Path | None = None) -> ImageFont.FreeTypeFon
     return ImageFont.load_default()
 
 
-def _dither_text_area(img: Image.Image) -> Image.Image:
+def _dither_text_area(img: Image.Image, mode: str = "atkinson") -> Image.Image:
     """Apply error-diffusion dithering to text area with pure black/white palette.
-
-    This produces smooth text edges (not jagged like hard binarization).
-    Error diffusion naturally handles anti-aliased grayscale pixels.
 
     Args:
         img: RGB image with anti-aliased text
+        mode: Dithering algorithm (atkinson, floyd_steinberg, burkes, etc.)
 
     Returns:
         RGB image with only pure black (0,0,0) and pure white (255,255,255)
     """
-    # Apply Floyd-Steinberg dithering with B/W palette
+    mode_map = {
+        "atkinson": DitherMode.ATKINSON,
+        "floyd_steinberg": DitherMode.FLOYD_STEINBERG,
+        "burkes": DitherMode.BURKES,
+        "sierra": DitherMode.SIERRA,
+        "stucki": DitherMode.STUCKI,
+        "jarvis": DitherMode.JARVIS_JUDICE_NINKE,
+    }
+    dither_mode = mode_map.get(mode, DitherMode.ATKINSON)
+
     dithered = dither_image(
         img,
         _BW_PALETTE,
-        mode=DitherMode.FLOYD_STEINBERG,
+        mode=dither_mode,
         serpentine=True,
     )
     return dithered.convert("RGB")
@@ -176,6 +183,7 @@ def render_text_overlay(
     lang: str = "zh",
     font_path_zh: Path | None = None,
     font_path_en: Path | None = None,
+    dither_mode: str = "atkinson",
 ) -> Image.Image:
     """Render text overlay on a 480x100 white canvas.
 
@@ -187,6 +195,7 @@ def render_text_overlay(
         lang: Display language code ('zh' or 'en')
         font_path_zh: Path to Chinese font
         font_path_en: Path to English font
+        dither_mode: Dithering algorithm for text (default: atkinson)
 
     Returns:
         RGB image (480x100) with black text on white background
@@ -248,6 +257,6 @@ def render_text_overlay(
 
     # Apply error-diffusion dithering with pure black/white palette
     # This creates smooth text edges (not jagged like hard binarization)
-    canvas = _dither_text_area(canvas)
+    canvas = _dither_text_area(canvas, mode=dither_mode)
 
     return canvas

@@ -103,8 +103,9 @@ def render(
     lang: str = "zh",
     font_path_zh: Union[str, Path, None] = None,
     font_path_en: Union[str, Path, None] = None,
-    dither_mode: str = "burkes",
-    tone: float = 0.0,
+    photo_dither_mode: str = "burkes",
+    photo_tone: float = 0.0,
+    text_dither_mode: str = "atkinson",
 ) -> bytes:
     """Render photo with text overlay to 192KB 4bpp binary.
 
@@ -121,7 +122,7 @@ def render(
     photo_area = resize_photo_for_display(img)
 
     # 2. Dither photo area only
-    dithered_photo = apply_dither(photo_area, mode=dither_mode, tone=tone)
+    dithered_photo = apply_dither(photo_area, mode=photo_dither_mode, tone=photo_tone)
 
     # 3. Render text overlay (crisp black on white)
     text_overlay = render_text_overlay(
@@ -129,6 +130,7 @@ def render(
         lang=lang,
         font_path_zh=Path(font_path_zh) if font_path_zh else None,
         font_path_en=Path(font_path_en) if font_path_en else None,
+        dither_mode=text_dither_mode,
     )
 
     # 4. Composite: photo on top, text on bottom
@@ -146,8 +148,9 @@ def render_preview(
     lang: str = "zh",
     font_path_zh: Union[str, Path, None] = None,
     font_path_en: Union[str, Path, None] = None,
-    dither_mode: str = "burkes",
-    tone: float = 0.0,
+    photo_dither_mode: str = "burkes",
+    photo_tone: float = 0.0,
+    text_dither_mode: str = "atkinson",
 ) -> bytes:
     """Generate PNG preview of the composed layout.
 
@@ -163,7 +166,7 @@ def render_preview(
     photo_area = resize_photo_for_display(img)
 
     # 2. Dither photo area only
-    dithered_photo = apply_dither(photo_area, mode=dither_mode, tone=tone)
+    dithered_photo = apply_dither(photo_area, mode=photo_dither_mode, tone=photo_tone)
 
     # 3. Render text overlay (crisp black on white)
     text_overlay = render_text_overlay(
@@ -171,6 +174,7 @@ def render_preview(
         lang=lang,
         font_path_zh=Path(font_path_zh) if font_path_zh else None,
         font_path_en=Path(font_path_en) if font_path_en else None,
+        dither_mode=text_dither_mode,
     )
 
     # 4. Composite: photo on top, text on bottom

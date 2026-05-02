@@ -71,8 +71,9 @@ class ServerSettings(BaseSettings):
     enhanced_retry_times: int = 3
 
     # Dithering settings
-    dither_mode: str = "burkes"
-    tone: float | str = 0.0
+    photo_dither_mode: str = "burkes"
+    photo_tone: float | str = 0.0
+    text_dither_mode: str = "atkinson"
 
     @property
     def display_languages(self) -> list[str]:
