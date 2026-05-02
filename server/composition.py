@@ -2,7 +2,7 @@
 
 Two-pass rendering for optimal quality:
 1. Dither photo area only (error diffusion for smooth gradients)
-2. Render text area separately (crisp edges, no dithering)
+2. Render text area separately (dithered with B/W palette for smooth edges)
 3. Composite both into final canvas
 """
 
@@ -14,16 +14,8 @@ from typing import Union
 from PIL import Image, ImageOps
 
 from .database import PhotoCandidate
-from .dither import apply_dither, pack_to_4bpp
+from .dither import apply_dither, pack_to_4bpp, CANVAS_WIDTH, CANVAS_HEIGHT, PHOTO_AREA_HEIGHT
 from .text_overlay import render_text_overlay
-
-
-# =============================================================================
-# Display Constants (hardcoded for GDEP073E01 panel)
-# =============================================================================
-CANVAS_WIDTH = 480
-CANVAS_HEIGHT = 800
-PHOTO_AREA_HEIGHT = 700  # Top 700px for photo, bottom 100px for text
 
 
 # =============================================================================
@@ -57,44 +49,6 @@ def resize_photo_for_display(img: Image.Image) -> Image.Image:
 
 
 # =============================================================================
-# Canvas Composition (for backward compatibility / RGB preview)
-# =============================================================================
-def compose_canvas(
-    photo_path: Union[str, Path],
-    candidate: PhotoCandidate,
-    lang: str = "zh",
-    font_path_zh: Union[str, Path, None] = None,
-    font_path_en: Union[str, Path, None] = None,
-) -> Image.Image:
-    """Compose the full 480x800 canvas with photo and text overlay.
-
-    This function is kept for backward compatibility and RGB preview purposes.
-    For production rendering, use render() which applies two-pass dithering.
-    """
-    # Load photo with EXIF orientation
-    img = Image.open(photo_path)
-    img = ImageOps.exif_transpose(img).convert("RGB")
-
-    # Create white canvas
-    canvas = Image.new("RGB", (CANVAS_WIDTH, CANVAS_HEIGHT), (255, 255, 255))
-
-    # Resize and paste photo to top area
-    photo_area = resize_photo_for_display(img)
-    canvas.paste(photo_area, (0, 0))
-
-    # Render and paste text overlay (bottom 100px)
-    text_overlay = render_text_overlay(
-        candidate,
-        lang=lang,
-        font_path_zh=Path(font_path_zh) if font_path_zh else None,
-        font_path_en=Path(font_path_en) if font_path_en else None,
-    )
-    canvas.paste(text_overlay, (0, PHOTO_AREA_HEIGHT))
-
-    return canvas
-
-
-# =============================================================================
 # Main Entry Point
 # =============================================================================
 def render(
@@ -111,7 +65,7 @@ def render(
 
     Uses two-pass rendering for optimal quality:
     1. Dither photo area only (error diffusion for smooth gradients)
-    2. Render text area separately (crisp edges, no dithering)
+    2. Render text area separately (dithered with B/W palette for smooth edges)
     3. Composite both into final canvas
     """
     # Load photo with EXIF orientation

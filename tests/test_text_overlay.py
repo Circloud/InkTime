@@ -6,9 +6,9 @@ from PIL import Image
 from server.text_overlay import (
     render_text_overlay,
     format_date_display,
-    TEXT_CANVAS_WIDTH,
     TEXT_CANVAS_HEIGHT,
 )
+from server.dither import CANVAS_WIDTH
 from server.database import PhotoCandidate
 
 
@@ -25,7 +25,7 @@ def test_render_text_overlay_returns_correct_size():
 
     result = render_text_overlay(candidate, lang="zh")
 
-    assert result.size == (TEXT_CANVAS_WIDTH, TEXT_CANVAS_HEIGHT)
+    assert result.size == (CANVAS_WIDTH, TEXT_CANVAS_HEIGHT)
     assert result.mode == "RGB"
 
 
@@ -60,7 +60,7 @@ def test_render_text_overlay_dithering_produces_black_white():
     # Collect all unique colors
     colors = set()
     for y in range(TEXT_CANVAS_HEIGHT):
-        for x in range(TEXT_CANVAS_WIDTH):
+        for x in range(CANVAS_WIDTH):
             colors.add(result.getpixel((x, y)))
 
     # Error-diffusion dithering with B/W palette should only produce black and white
@@ -82,7 +82,7 @@ def test_render_text_overlay_has_black_pixels():
     # Check that there are black pixels (text was rendered)
     has_black = False
     for y in range(TEXT_CANVAS_HEIGHT):
-        for x in range(TEXT_CANVAS_WIDTH):
+        for x in range(CANVAS_WIDTH):
             if result.getpixel((x, y)) == (0, 0, 0):
                 has_black = True
                 break

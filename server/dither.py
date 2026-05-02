@@ -22,6 +22,7 @@ from epaper_dithering import dither_image, DitherMode, SPECTRA_7_3_6COLOR_V2
 # =============================================================================
 CANVAS_WIDTH = 480
 CANVAS_HEIGHT = 800
+PHOTO_AREA_HEIGHT = 700  # Top 700px for photo, bottom 100px for text
 TOTAL_BYTES = (CANVAS_WIDTH * CANVAS_HEIGHT) // 2  # 192,000 bytes
 
 # =============================================================================
@@ -29,7 +30,7 @@ TOTAL_BYTES = (CANVAS_WIDTH * CANVAS_HEIGHT) // 2  # 192,000 bytes
 # =============================================================================
 DitherModeType = Literal["floyd_steinberg", "burkes", "atkinson", "sierra", "stucki", "jarvis"]
 
-_DITHER_MODE_MAP = {
+DITHER_MODE_MAP = {
     "floyd_steinberg": DitherMode.FLOYD_STEINBERG,
     "burkes": DitherMode.BURKES,
     "atkinson": DitherMode.ATKINSON,
@@ -94,7 +95,7 @@ def apply_dither(
         Dithered PIL Image in RGB mode with measured palette colors
     """
     img = img.convert("RGB")
-    dither_mode = _DITHER_MODE_MAP.get(mode, DitherMode.BURKES)
+    dither_mode = DITHER_MODE_MAP.get(mode, DitherMode.BURKES)
 
     result = dither_image(
         img,
@@ -113,32 +114,15 @@ def apply_dither(
 def _rgb_to_display_index(rgb: tuple[int, int, int]) -> int:
     """Convert RGB pixel to display color index.
 
-    Handles:
-    1. Measured palette colors (from dithered photos)
-    2. Pure black/white (from text rendering)
-    3. Grayscale anti-aliased text pixels (map to black if dark, white if light)
-
     Args:
         rgb: RGB tuple (r, g, b)
 
     Returns:
         Display color index (0=black, 1=white, 2=yellow, 3=red, 5=blue, 6=green)
     """
-    # Check exact match first (measured palette + pure black/white)
     if rgb in _RGB_TO_INDEX:
         return _RGB_TO_INDEX[rgb]
-
-    r, g, b = rgb
-
-    # Handle grayscale anti-aliased text pixels
-    # If R≈G≈B (grayscale), map to black or white based on brightness
-    if abs(r - g) < 16 and abs(g - b) < 16 and abs(r - b) < 16:
-        # Grayscale pixel - map to black if dark, white if light
-        brightness = (r + g + b) / 3
-        return 0 if brightness < 128 else 1
-
-    # For other colors, default to white
-    return 1
+    return 1  # Default to white for unexpected colors
 
 
 def pack_to_4bpp(img: Image.Image) -> bytes:

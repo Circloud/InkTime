@@ -97,25 +97,10 @@ def test_full_pipeline_produces_192kb():
     assert len(packed) == 192000
 
 
-def test_grayscale_pixels_map_correctly():
-    """Grayscale pixels (anti-aliased text) should map to black or white."""
-    from server.dither import _rgb_to_display_index
-
-    # Dark grays should map to black (index 0)
-    assert _rgb_to_display_index((0, 0, 0)) == 0  # Pure black
-    assert _rgb_to_display_index((50, 50, 50)) == 0  # Dark gray
-    assert _rgb_to_display_index((100, 100, 100)) == 0  # Medium gray
-    assert _rgb_to_display_index((127, 127, 127)) == 0  # Just below threshold
-
-    # Light grays should map to white (index 1)
-    assert _rgb_to_display_index((128, 128, 128)) == 1  # Just above threshold
-    assert _rgb_to_display_index((200, 200, 200)) == 1  # Light gray
-    assert _rgb_to_display_index((255, 255, 255)) == 1  # Pure white
-
-
 def test_text_overlay_renders_correctly_in_final_canvas():
     """Text overlay with anti-aliased pixels should render correctly after packing."""
-    from server.text_overlay import render_text_overlay, TEXT_CANVAS_WIDTH, TEXT_CANVAS_HEIGHT
+    from server.text_overlay import render_text_overlay, TEXT_CANVAS_HEIGHT
+    from server.dither import CANVAS_WIDTH
     from server.database import PhotoCandidate
 
     candidate = PhotoCandidate(

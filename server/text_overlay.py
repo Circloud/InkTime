@@ -12,13 +12,12 @@ from PIL import Image, ImageDraw, ImageFont
 from epaper_dithering import dither_image, DitherMode, ColorPalette
 
 from .database import PhotoCandidate
+from .dither import CANVAS_WIDTH, DITHER_MODE_MAP
 
 
 # =============================================================================
 # Pure Black/White Palette for Text Dithering
 # =============================================================================
-# This palette ensures text gets pure black/white output with error diffusion
-# for smooth edges (not jagged like hard binarization)
 _BW_PALETTE = ColorPalette(
     colors={'black': (0, 0, 0), 'white': (255, 255, 255)},
     accent='black'
@@ -28,7 +27,6 @@ _BW_PALETTE = ColorPalette(
 # =============================================================================
 # Text Canvas Dimensions
 # =============================================================================
-TEXT_CANVAS_WIDTH = 480
 TEXT_CANVAS_HEIGHT = 100
 
 # =============================================================================
@@ -156,15 +154,7 @@ def _dither_text_area(img: Image.Image, mode: str = "atkinson") -> Image.Image:
     Returns:
         RGB image with only pure black (0,0,0) and pure white (255,255,255)
     """
-    mode_map = {
-        "atkinson": DitherMode.ATKINSON,
-        "floyd_steinberg": DitherMode.FLOYD_STEINBERG,
-        "burkes": DitherMode.BURKES,
-        "sierra": DitherMode.SIERRA,
-        "stucki": DitherMode.STUCKI,
-        "jarvis": DitherMode.JARVIS_JUDICE_NINKE,
-    }
-    dither_mode = mode_map.get(mode, DitherMode.ATKINSON)
+    dither_mode = DITHER_MODE_MAP.get(mode, DitherMode.ATKINSON)
 
     dithered = dither_image(
         img,
@@ -201,7 +191,7 @@ def render_text_overlay(
         RGB image (480x100) with black text on white background
     """
     # Create white text canvas
-    canvas = Image.new("RGB", (TEXT_CANVAS_WIDTH, TEXT_CANVAS_HEIGHT), (255, 255, 255))
+    canvas = Image.new("RGB", (CANVAS_WIDTH, TEXT_CANVAS_HEIGHT), (255, 255, 255))
     draw = ImageDraw.Draw(canvas)
 
     # Select font based on language
@@ -216,7 +206,7 @@ def render_text_overlay(
     font_caption = load_font(caption_size, font_path)
     font_meta = load_font(meta_size, font_path)
 
-    text_width = TEXT_CANVAS_WIDTH - 2 * TEXT_PADDING_X
+    text_width = CANVAS_WIDTH - 2 * TEXT_PADDING_X
 
     # Get caption: prefer enhanced, fallback to original
     caption = ""
