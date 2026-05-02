@@ -95,3 +95,57 @@ def test_full_pipeline_produces_192kb():
     packed = pack_to_4bpp(dithered)
 
     assert len(packed) == 192000
+
+
+def test_grayscale_pixels_map_correctly():
+    """Grayscale pixels (anti-aliased text) should map to black or white."""
+    from server.dither import _rgb_to_display_index
+
+    # Dark grays should map to black (index 0)
+    assert _rgb_to_display_index((0, 0, 0)) == 0  # Pure black
+    assert _rgb_to_display_index((50, 50, 50)) == 0  # Dark gray
+    assert _rgb_to_display_index((100, 100, 100)) == 0  # Medium gray
+    assert _rgb_to_display_index((127, 127, 127)) == 0  # Just below threshold
+
+    # Light grays should map to white (index 1)
+    assert _rgb_to_display_index((128, 128, 128)) == 1  # Just above threshold
+    assert _rgb_to_display_index((200, 200, 200)) == 1  # Light gray
+    assert _rgb_to_display_index((255, 255, 255)) == 1  # Pure white
+
+
+def test_text_overlay_renders_correctly_in_final_canvas():
+    """Text overlay with anti-aliased pixels should render correctly after packing."""
+    from server.text_overlay import render_text_overlay, TEXT_CANVAS_WIDTH, TEXT_CANVAS_HEIGHT
+    from server.database import PhotoCandidate
+
+    candidate = PhotoCandidate(
+        path="/test/photo.jpg",
+        memory_score=80.0,
+        beauty_score=85.0,
+        exif_datetime="2026-05-02",
+        caption_json={"zh": "测试"},
+    )
+
+    # Render text overlay
+    text_canvas = render_text_overlay(candidate, lang="zh")
+
+    # Create a full-size canvas and paste text overlay at bottom
+    full_canvas = Image.new("RGB", (CANVAS_WIDTH, CANVAS_HEIGHT), (255, 255, 255))
+    full_canvas.paste(text_canvas, (0, 700))  # Text area is at y=700-799
+
+    # Pack to 4bpp (should handle grayscale anti-aliased pixels)
+    packed = pack_to_4bpp(full_canvas)
+
+    # Verify output size
+    assert len(packed) == (CANVAS_WIDTH * CANVAS_HEIGHT) // 2
+
+    # Verify that there are black pixels (text) in the output
+    has_black = False
+    for byte in packed:
+        high = (byte >> 4) & 0x0F
+        low = byte & 0x0F
+        if high == 0 or low == 0:
+            has_black = True
+            break
+
+    assert has_black, "Text should produce black pixels in output"

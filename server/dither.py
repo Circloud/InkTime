@@ -59,6 +59,11 @@ _RGB_TO_INDEX: dict[tuple[int, int, int], int] = {
     if name in _COLOR_NAME_TO_DISPLAY_INDEX
 }
 
+# Add pure black and pure white for text rendering (not in measured palette)
+# These are used by text_overlay module for crisp text on white background
+_RGB_TO_INDEX[(0, 0, 0)] = 0  # Pure black → display black
+_RGB_TO_INDEX[(255, 255, 255)] = 1  # Pure white → display white
+
 
 # =============================================================================
 # Dithering
@@ -105,6 +110,37 @@ def apply_dither(
 # =============================================================================
 # 4bpp Packing (panel-specific)
 # =============================================================================
+def _rgb_to_display_index(rgb: tuple[int, int, int]) -> int:
+    """Convert RGB pixel to display color index.
+
+    Handles:
+    1. Measured palette colors (from dithered photos)
+    2. Pure black/white (from text rendering)
+    3. Grayscale anti-aliased text pixels (map to black if dark, white if light)
+
+    Args:
+        rgb: RGB tuple (r, g, b)
+
+    Returns:
+        Display color index (0=black, 1=white, 2=yellow, 3=red, 5=blue, 6=green)
+    """
+    # Check exact match first (measured palette + pure black/white)
+    if rgb in _RGB_TO_INDEX:
+        return _RGB_TO_INDEX[rgb]
+
+    r, g, b = rgb
+
+    # Handle grayscale anti-aliased text pixels
+    # If R≈G≈B (grayscale), map to black or white based on brightness
+    if abs(r - g) < 16 and abs(g - b) < 16 and abs(r - b) < 16:
+        # Grayscale pixel - map to black if dark, white if light
+        brightness = (r + g + b) / 3
+        return 0 if brightness < 128 else 1
+
+    # For other colors, default to white
+    return 1
+
+
 def pack_to_4bpp(img: Image.Image) -> bytes:
     """Convert dithered 480x800 RGB image to 192KB packed binary.
 
@@ -134,8 +170,8 @@ def pack_to_4bpp(img: Image.Image) -> bytes:
             # Get RGB values and convert to display index
             rgb0 = img.getpixel((x, y))
             rgb1 = img.getpixel((x + 1, y))
-            p0 = _RGB_TO_INDEX.get(rgb0, 1)  # Default to white
-            p1 = _RGB_TO_INDEX.get(rgb1, 1)
+            p0 = _rgb_to_display_index(rgb0)
+            p1 = _rgb_to_display_index(rgb1)
 
             # Pack: high nibble = first pixel, low nibble = second
             byte_offset = y * (CANVAS_WIDTH // 2) + x // 2
