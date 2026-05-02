@@ -90,6 +90,9 @@ class CacheMetadata:
     rendered_lang: str  # Language used for rendering, e.g., "zh"
     enhanced_caption_enabled: bool  # Whether enhanced captions were enabled
     selection_mode: str = "date"  # Selection mode used for this cache
+    photo_dither_mode: str = "burkes"  # Dithering algorithm for photo area
+    photo_tone: str = "0.0"  # Dynamic range compression (string for flexibility)
+    text_dither_mode: str = "atkinson"  # Dithering algorithm for text area
     current_index: int = 0  # Current photo index for sequential display
     photos: list[dict[str, Any]] = field(default_factory=list)
 
@@ -103,6 +106,9 @@ class CacheMetadata:
                 "rendered_lang": self.rendered_lang,
                 "enhanced_caption_enabled": self.enhanced_caption_enabled,
                 "selection_mode": self.selection_mode,
+                "photo_dither_mode": self.photo_dither_mode,
+                "photo_tone": self.photo_tone,
+                "text_dither_mode": self.text_dither_mode,
                 "current_index": self.current_index,
                 "photos": self.photos
             }, f, ensure_ascii=False, indent=2)
@@ -122,6 +128,9 @@ class CacheMetadata:
             rendered_lang=data.get("rendered_lang", "zh"),  # Default for old cache
             enhanced_caption_enabled=data.get("enhanced_caption_enabled", False),  # Default for old cache
             selection_mode=data.get("selection_mode", "date"),  # Default for old cache
+            photo_dither_mode=data.get("photo_dither_mode", "burkes"),  # Default for old cache
+            photo_tone=data.get("photo_tone", "0.0"),  # Default for old cache
+            text_dither_mode=data.get("text_dither_mode", "atkinson"),  # Default for old cache
             current_index=data.get("current_index", 0),  # Default for old cache
             photos=data["photos"]
         )
@@ -185,6 +194,9 @@ def save_cache_to_disk(
         rendered_lang=rendered_lang,
         enhanced_caption_enabled=settings.enhanced_caption_enabled,
         selection_mode=settings.selection_mode,
+        photo_dither_mode=settings.photo_dither_mode,
+        photo_tone=str(settings.photo_tone),
+        text_dither_mode=settings.text_dither_mode,
         current_index=0,  # New cache starts at index 0
         photos=photo_entries
     )
@@ -270,9 +282,15 @@ class DailyPhotoCache:
         if not cache_date or not photos:
             return
 
-        # Load metadata for mode check
+        # Load metadata for setting checks
         metadata = CacheMetadata.load(self._cache_dir)
-        cached_mode = metadata.selection_mode if metadata else "date"
+        if not metadata:
+            return
+
+        cached_mode = metadata.selection_mode
+        cached_photo_dither = metadata.photo_dither_mode
+        cached_photo_tone = metadata.photo_tone
+        cached_text_dither = metadata.text_dither_mode
 
         today = date.today()
 
@@ -290,12 +308,21 @@ class DailyPhotoCache:
         elif cached_mode != settings.selection_mode:
             print(f"[InkTime] Selection mode changed from {cached_mode} to {settings.selection_mode}")
             clear_cache_dir(self._cache_dir)
+        elif cached_photo_dither != settings.photo_dither_mode:
+            print(f"[InkTime] Photo dither mode changed from {cached_photo_dither} to {settings.photo_dither_mode}")
+            clear_cache_dir(self._cache_dir)
+        elif cached_photo_tone != str(settings.photo_tone):
+            print(f"[InkTime] Photo tone changed from {cached_photo_tone} to {settings.photo_tone}")
+            clear_cache_dir(self._cache_dir)
+        elif cached_text_dither != settings.text_dither_mode:
+            print(f"[InkTime] Text dither mode changed from {cached_text_dither} to {settings.text_dither_mode}")
+            clear_cache_dir(self._cache_dir)
         else:
             # Cache is valid
             self._date = cache_date
             self._rendered_lang = rendered_lang
             self._photos = photos
-            self._current_index = metadata.current_index if metadata else 0
+            self._current_index = metadata.current_index
             print(f"[InkTime] Loaded {len(photos)} cached photos from disk for {cache_date} ({rendered_lang})")
 
     def get(self, index: int) -> CachedPhoto:
