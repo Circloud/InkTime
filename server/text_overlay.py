@@ -9,8 +9,20 @@ from __future__ import annotations
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
+from epaper_dithering import dither_image, DitherMode, ColorPalette
 
 from .database import PhotoCandidate
+
+
+# =============================================================================
+# Pure Black/White Palette for Text Dithering
+# =============================================================================
+# This palette ensures text gets pure black/white output with error diffusion
+# for smooth edges (not jagged like hard binarization)
+_BW_PALETTE = ColorPalette(
+    colors={'black': (0, 0, 0), 'white': (255, 255, 255)},
+    accent='black'
+)
 
 
 # =============================================================================
@@ -134,12 +146,11 @@ def load_font(size: int, font_path: Path | None = None) -> ImageFont.FreeTypeFon
     return ImageFont.load_default()
 
 
-def _binarize_grayscale(img: Image.Image) -> Image.Image:
-    """Convert anti-aliased grayscale pixels to pure black or white.
+def _dither_text_area(img: Image.Image) -> Image.Image:
+    """Apply error-diffusion dithering to text area with pure black/white palette.
 
-    PIL renders text with anti-aliasing, producing grayscale pixels.
-    E-ink display only shows pure black or white for text area.
-    This function replicates the e-ink visual effect for preview accuracy.
+    This produces smooth text edges (not jagged like hard binarization).
+    Error diffusion naturally handles anti-aliased grayscale pixels.
 
     Args:
         img: RGB image with anti-aliased text
@@ -147,21 +158,14 @@ def _binarize_grayscale(img: Image.Image) -> Image.Image:
     Returns:
         RGB image with only pure black (0,0,0) and pure white (255,255,255)
     """
-    img = img.convert("RGB")
-    pixels = img.load()
-
-    for y in range(img.height):
-        for x in range(img.width):
-            r, g, b = pixels[x, y]
-
-            # Check if pixel is grayscale (R ≈ G ≈ B)
-            if abs(r - g) < 16 and abs(g - b) < 16 and abs(r - b) < 16:
-                # Map to black if dark, white if light
-                brightness = (r + g + b) / 3
-                pixels[x, y] = (0, 0, 0) if brightness < 128 else (255, 255, 255)
-            # Non-grayscale colors (from dithered photo edge) remain unchanged
-
-    return img
+    # Apply Floyd-Steinberg dithering with B/W palette
+    dithered = dither_image(
+        img,
+        _BW_PALETTE,
+        mode=DitherMode.FLOYD_STEINBERG,
+        serpentine=True,
+    )
+    return dithered.convert("RGB")
 
 
 # =============================================================================
@@ -175,7 +179,7 @@ def render_text_overlay(
 ) -> Image.Image:
     """Render text overlay on a 480x100 white canvas.
 
-    This produces crisp text edges since it's not affected by dithering.
+    Uses error-diffusion dithering with pure black/white palette for smooth edges.
     The result should be composited onto the final canvas after photo dithering.
 
     Args:
@@ -242,8 +246,8 @@ def render_text_overlay(
             loc_x = TEXT_PADDING_X
         draw.text((loc_x, DATE_LOCATION_Y), location, font=font_meta, fill=(0, 0, 0))
 
-    # Convert anti-aliased grayscale pixels to pure black/white
-    # This makes the preview PNG match the e-ink display output
-    canvas = _binarize_grayscale(canvas)
+    # Apply error-diffusion dithering with pure black/white palette
+    # This creates smooth text edges (not jagged like hard binarization)
+    canvas = _dither_text_area(canvas)
 
     return canvas

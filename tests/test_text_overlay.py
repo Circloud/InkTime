@@ -40,13 +40,13 @@ def test_render_text_overlay_uses_white_background():
 
     result = render_text_overlay(candidate, lang="zh")
 
-    # Check corners are white
+    # Check corners are white (no text at edges)
     assert result.getpixel((0, 0)) == (255, 255, 255)
     assert result.getpixel((479, 99)) == (255, 255, 255)
 
 
-def test_render_text_overlay_has_no_grayscale():
-    """Text overlay should only have pure black and pure white (no anti-aliasing)."""
+def test_render_text_overlay_dithering_produces_black_white():
+    """Text overlay dithering should produce only pure black and pure white."""
     candidate = PhotoCandidate(
         path="/test/photo.jpg",
         memory_score=80.0,
@@ -63,8 +63,33 @@ def test_render_text_overlay_has_no_grayscale():
         for x in range(TEXT_CANVAS_WIDTH):
             colors.add(result.getpixel((x, y)))
 
-    # Should only have pure black and pure white
+    # Error-diffusion dithering with B/W palette should only produce black and white
     assert colors == {(0, 0, 0), (255, 255, 255)}
+
+
+def test_render_text_overlay_has_black_pixels():
+    """Text overlay with caption should have black pixels."""
+    candidate = PhotoCandidate(
+        path="/test/photo.jpg",
+        memory_score=80.0,
+        beauty_score=85.0,
+        exif_datetime="2026-05-02",
+        caption_json={"zh": "测试文案"},
+    )
+
+    result = render_text_overlay(candidate, lang="zh")
+
+    # Check that there are black pixels (text was rendered)
+    has_black = False
+    for y in range(TEXT_CANVAS_HEIGHT):
+        for x in range(TEXT_CANVAS_WIDTH):
+            if result.getpixel((x, y)) == (0, 0, 0):
+                has_black = True
+                break
+        if has_black:
+            break
+
+    assert has_black, "Text should produce black pixels"
 
 
 def test_format_date_display_chinese():
