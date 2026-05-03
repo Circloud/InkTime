@@ -63,7 +63,7 @@ def _generate_missing_enhanced_captions(
             print(f"Warning: Failed to generate enhanced caption for {candidate.path}: {e}")
 
     # Execute in parallel
-    with ThreadPoolExecutor(max_workers=min(3, len(missing))) as executor:
+    with ThreadPoolExecutor(max_workers=min(settings.enhanced_concurrent_limit, len(missing))) as executor:
         futures = {executor.submit(_generate_and_save, c): c for c in missing}
 
         for future in as_completed(futures):

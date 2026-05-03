@@ -69,6 +69,7 @@ class ServerSettings(BaseSettings):
     enhanced_model_name: str = "gpt-4o-mini"
     enhanced_timeout: int = 60
     enhanced_retry_times: int = 3
+    enhanced_concurrent_limit: int = 3
 
     # Dithering settings
     photo_dither_mode: str = "burkes"
