@@ -336,3 +336,205 @@ class TestPhotoIndexTracking:
         # But since we have no photos in metadata, it won't validate
         # So let's verify the index is in the metadata file
         assert cache._current_index == 2
+
+
+class TestDitheringSettingsInvalidation:
+    """Tests for cache invalidation when dithering settings change."""
+
+    def test_cache_invalidates_on_photo_dither_mode_change(self, temp_cache_dir: Path):
+        """Cache should be cleared when PHOTO_DITHER_MODE changes."""
+        from server.cache import DailyPhotoCache, CacheMetadata
+
+        # Create metadata with burkes mode
+        metadata = CacheMetadata(
+            date=date.today().isoformat(),
+            rendered_lang="zh",
+            enhanced_caption_enabled=False,
+            selection_mode="curated",
+            photo_dither_mode="burkes",
+            photo_tone="0.0",
+            text_dither_mode="atkinson",
+            current_index=0,
+            photos=[{
+                "index": 0,
+                "path": "/path/to/photo.jpg",
+                "memory_score": 80.0,
+                "beauty_score": 85.0,
+                "exif_datetime": "2024-07-15",
+                "location_json": {},
+                "caption_json": {},
+                "binary_file": "photo_0.bin",
+                "preview_file": "photo_0.png",
+            }],
+        )
+        metadata.save(temp_cache_dir)
+
+        # Create dummy binary file
+        (temp_cache_dir / "photo_0.bin").write_bytes(b"\x00" * 192000)
+
+        # Mock settings with different photo_dither_mode
+        import server.cache as cache_module
+        original_settings = cache_module.settings
+        mock_settings = type("MockSettings", (), {
+            "selection_mode": "curated",
+            "default_language": "zh",
+            "enhanced_caption_enabled": False,
+            "photo_dither_mode": "jarvis",  # Different from metadata
+            "photo_tone": 0.0,
+            "text_dither_mode": "atkinson",
+        })()
+        cache_module.settings = mock_settings
+
+        try:
+            cache = DailyPhotoCache(temp_cache_dir)
+            # Cache should be cleared (no photos loaded)
+            assert len(cache._photos) == 0
+            # Metadata file should be deleted
+            assert not (temp_cache_dir / "metadata.json").exists()
+        finally:
+            cache_module.settings = original_settings
+
+    def test_cache_invalidates_on_photo_tone_change(self, temp_cache_dir: Path):
+        """Cache should be cleared when PHOTO_TONE changes."""
+        from server.cache import DailyPhotoCache, CacheMetadata
+
+        metadata = CacheMetadata(
+            date=date.today().isoformat(),
+            rendered_lang="zh",
+            enhanced_caption_enabled=False,
+            selection_mode="curated",
+            photo_dither_mode="burkes",
+            photo_tone="0.5",  # 0.5 in cache
+            text_dither_mode="atkinson",
+            current_index=0,
+            photos=[{
+                "index": 0,
+                "path": "/path/to/photo.jpg",
+                "memory_score": 80.0,
+                "beauty_score": 85.0,
+                "exif_datetime": "2024-07-15",
+                "location_json": {},
+                "caption_json": {},
+                "binary_file": "photo_0.bin",
+                "preview_file": "photo_0.png",
+            }],
+        )
+        metadata.save(temp_cache_dir)
+        (temp_cache_dir / "photo_0.bin").write_bytes(b"\x00" * 192000)
+
+        # Mock settings with different photo_tone
+        import server.cache as cache_module
+        original_settings = cache_module.settings
+        mock_settings = type("MockSettings", (), {
+            "selection_mode": "curated",
+            "default_language": "zh",
+            "enhanced_caption_enabled": False,
+            "photo_dither_mode": "burkes",
+            "photo_tone": 0.8,  # Different from metadata (0.5)
+            "text_dither_mode": "atkinson",
+        })()
+        cache_module.settings = mock_settings
+
+        try:
+            cache = DailyPhotoCache(temp_cache_dir)
+            assert len(cache._photos) == 0
+            assert not (temp_cache_dir / "metadata.json").exists()
+        finally:
+            cache_module.settings = original_settings
+
+    def test_cache_invalidates_on_text_dither_mode_change(self, temp_cache_dir: Path):
+        """Cache should be cleared when TEXT_DITHER_MODE changes."""
+        from server.cache import DailyPhotoCache, CacheMetadata
+
+        metadata = CacheMetadata(
+            date=date.today().isoformat(),
+            rendered_lang="zh",
+            enhanced_caption_enabled=False,
+            selection_mode="curated",
+            photo_dither_mode="burkes",
+            photo_tone="0.0",
+            text_dither_mode="atkinson",  # atkinson in cache
+            current_index=0,
+            photos=[{
+                "index": 0,
+                "path": "/path/to/photo.jpg",
+                "memory_score": 80.0,
+                "beauty_score": 85.0,
+                "exif_datetime": "2024-07-15",
+                "location_json": {},
+                "caption_json": {},
+                "binary_file": "photo_0.bin",
+                "preview_file": "photo_0.png",
+            }],
+        )
+        metadata.save(temp_cache_dir)
+        (temp_cache_dir / "photo_0.bin").write_bytes(b"\x00" * 192000)
+
+        # Mock settings with different text_dither_mode
+        import server.cache as cache_module
+        original_settings = cache_module.settings
+        mock_settings = type("MockSettings", (), {
+            "selection_mode": "curated",
+            "default_language": "zh",
+            "enhanced_caption_enabled": False,
+            "photo_dither_mode": "burkes",
+            "photo_tone": 0.0,
+            "text_dither_mode": "floyd_steinberg",  # Different from metadata
+        })()
+        cache_module.settings = mock_settings
+
+        try:
+            cache = DailyPhotoCache(temp_cache_dir)
+            assert len(cache._photos) == 0
+            assert not (temp_cache_dir / "metadata.json").exists()
+        finally:
+            cache_module.settings = original_settings
+
+    def test_cache_valid_when_dithering_settings_match(self, temp_cache_dir: Path):
+        """Cache should be preserved when all dithering settings match."""
+        from server.cache import DailyPhotoCache, CacheMetadata
+
+        metadata = CacheMetadata(
+            date=date.today().isoformat(),
+            rendered_lang="zh",
+            enhanced_caption_enabled=False,
+            selection_mode="curated",
+            photo_dither_mode="jarvis",
+            photo_tone="0.8",
+            text_dither_mode="floyd_steinberg",
+            current_index=0,
+            photos=[{
+                "index": 0,
+                "path": "/path/to/photo.jpg",
+                "memory_score": 80.0,
+                "beauty_score": 85.0,
+                "exif_datetime": "2024-07-15",
+                "location_json": {},
+                "caption_json": {},
+                "binary_file": "photo_0.bin",
+                "preview_file": "photo_0.png",
+            }],
+        )
+        metadata.save(temp_cache_dir)
+        (temp_cache_dir / "photo_0.bin").write_bytes(b"\x00" * 192000)
+
+        # Mock settings with MATCHING dithering settings
+        import server.cache as cache_module
+        original_settings = cache_module.settings
+        mock_settings = type("MockSettings", (), {
+            "selection_mode": "curated",
+            "default_language": "zh",
+            "enhanced_caption_enabled": False,
+            "photo_dither_mode": "jarvis",
+            "photo_tone": 0.8,
+            "text_dither_mode": "floyd_steinberg",
+        })()
+        cache_module.settings = mock_settings
+
+        try:
+            cache = DailyPhotoCache(temp_cache_dir)
+            # Cache should be loaded (not cleared)
+            assert len(cache._photos) == 1
+            assert (temp_cache_dir / "metadata.json").exists()
+        finally:
+            cache_module.settings = original_settings

@@ -3,7 +3,7 @@
  * @brief Centralized configuration constants for InkTime 73E firmware
  *
  * Hardware: ESP32-S3-WROOM-1-N8R8 with 7.3" E6 6-color e-ink display (GDEP073E01)
- * Server endpoint: GET /api/photo/<index> returns 192KB 4bpp packed binary
+ * Server endpoint: GET /api/photo returns 192KB 4bpp packed binary
  * Display: 480x800 portrait, rendered with 180 degree rotation
  * Workflow: WiFi connect -> NTP sync -> download -> display -> deep sleep
  */
