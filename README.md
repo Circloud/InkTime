@@ -4,7 +4,7 @@
 
 **Your Best Memories, Resurfaced Daily.**
 
-<img src="esp32/InkTime.jpeg" width="75%">
+<img src="placeholder_product.png" width="75%">
 
 *AI-powered privacy-first e-ink photo frame that surfaces your buried memories, automatically.*
 
